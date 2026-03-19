@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -32,26 +32,64 @@ function getFilePath(filename, req) {
 }
 const EXCEL_FILE = path.join(__dirname, 'data', 'input', 'MODELO PLANTILLA DE DATOS V9_INTx.xlsx');
 
+// SSE endpoint — streams Python stdout in real time
 app.post('/api/run-model', (req, res) => {
     console.log('Running optimization model...');
     const config = req.body;
     console.log('Configuration received:', config);
 
-    // Use the absolute path or container's python executable
-    // On macOS with Rosetta (x86_64 Node + arm64 Python), use 'arch -arm64' to force native execution
     const pythonPath = process.env.PYTHON_CMD || (process.platform === 'darwin' ? 'arch -arm64 python3' : 'python3');
+    const configStr = JSON.stringify(config);
 
-    // Pass configuration as a JSON string argument
-    // Escape double quotes for command line
-    const configStr = JSON.stringify(config).replace(/"/g, '\\"');
+    // Set up Server-Sent Events
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
 
-    exec(`${pythonPath} data_processing.py "${configStr}"`, { cwd: __dirname }, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing script: ${error}`);
-            return res.status(500).json({ error: 'Failed to run model', details: stderr });
+    const sendEvent = (type, data) => {
+        res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+    };
+
+    const pythonArgs = pythonPath.includes(' ')
+        ? pythonPath.split(' ').slice(1).concat(['data_processing.py', configStr])
+        : ['data_processing.py', configStr];
+    const pythonBin = pythonPath.includes(' ') ? pythonPath.split(' ')[0] : pythonPath;
+
+    const child = spawn(pythonBin, pythonArgs, {
+        cwd: __dirname,
+        env: { ...process.env, PYTHONUNBUFFERED: '1' }
+    });
+
+    child.stdout.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+            console.log(`[py] ${line}`);
+            sendEvent('log', line);
+        });
+    });
+
+    child.stderr.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+            console.error(`[py:err] ${line}`);
+            sendEvent('log', line);
+        });
+    });
+
+    child.on('close', (code) => {
+        if (code === 0) {
+            sendEvent('done', 'Model executed successfully');
+        } else {
+            sendEvent('error', `Process exited with code ${code}`);
         }
-        console.log(`Script output: ${stdout}`);
-        res.json({ message: 'Model executed successfully', output: stdout });
+        res.end();
+    });
+
+    req.on('close', () => {
+        child.kill();
     });
 });
 

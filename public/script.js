@@ -1843,43 +1843,71 @@ document.getElementById('run-model-btn').addEventListener('click', async () => {
     let successfulScenarios = 0;
     let ranS1Successfully = false;
 
+    // Helper: run one scenario via SSE streaming
+    const runScenarioSSE = (configData) => {
+        return new Promise((resolve, reject) => {
+            const controller = new AbortController();
+            fetch('/api/run-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configData),
+                signal: controller.signal
+            }).then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                const pump = () => {
+                    reader.read().then(({ done, value }) => {
+                        if (done) { resolve({ ok: true }); return; }
+                        buffer += decoder.decode(value, { stream: true });
+                        const parts = buffer.split('\n\n');
+                        buffer = parts.pop();
+                        for (const part of parts) {
+                            const match = part.match(/^data:\s*(.+)$/m);
+                            if (!match) continue;
+                            try {
+                                const evt = JSON.parse(match[1]);
+                                if (evt.type === 'log') {
+                                    consoleEl.textContent += evt.data + '\n';
+                                    consoleEl.scrollTop = consoleEl.scrollHeight;
+                                } else if (evt.type === 'error') {
+                                    reject(new Error(evt.data));
+                                    return;
+                                } else if (evt.type === 'done') {
+                                    // done handled by stream close
+                                }
+                            } catch (e) { /* ignore parse errors */ }
+                        }
+                        pump();
+                    }).catch(reject);
+                };
+                pump();
+            }).catch(reject);
+        });
+    };
+
     try {
         for (const scenario of scenariosToRun) {
-            consoleEl.textContent += `> Ejecutando escenario ${scenario}...\\n`;
+            consoleEl.textContent += `\n> Ejecutando escenario ${scenario}...\n`;
 
             const configData = { ...baseConfigData, escenario_ejecucion: scenario };
 
-            const response = await fetch('/api/run-model', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(configData)
-            });
+            await runScenarioSSE(configData);
+            successfulScenarios += 1;
 
-            const data = await response.json();
-            console.log(`Result ${scenario}:`, data);
-
-            if (data.error) {
-                consoleEl.textContent += `ERROR en ${scenario}: ${data.error}\\nDETAILS: ${data.details}\\n`;
-                alert(`Error al ejecutar el escenario ${scenario}: ` + data.error);
-                break; // Stop execution if there is an error
-            } else {
-                consoleEl.textContent += data.output + "\\n";
-                consoleEl.scrollTop = consoleEl.scrollHeight;
-                successfulScenarios += 1;
-
-                if (scenario === 'S1') {
-                    ranS1Successfully = true;
-                    if (configData.linea_obj !== undefined && configData.linea_obj !== null) {
-                        lastOptimizationLineObjId = configData.linea_obj;
-                        if (window.fixedLineaObjName) {
-                            lastOptimizationLineName = String(window.fixedLineaObjName);
-                        } else {
-                            lastOptimizationLineName = null;
-                        }
+            if (scenario === 'S1') {
+                ranS1Successfully = true;
+                if (configData.linea_obj !== undefined && configData.linea_obj !== null) {
+                    lastOptimizationLineObjId = configData.linea_obj;
+                    if (window.fixedLineaObjName) {
+                        lastOptimizationLineName = String(window.fixedLineaObjName);
                     } else {
-                        lastOptimizationLineObjId = null;
                         lastOptimizationLineName = null;
                     }
+                } else {
+                    lastOptimizationLineObjId = null;
+                    lastOptimizationLineName = null;
                 }
             }
         }
@@ -1894,13 +1922,12 @@ document.getElementById('run-model-btn').addEventListener('click', async () => {
         }
 
         if (successfulScenarios === scenariosToRun.length) {
-            alert('Ejecución(es) completadas exitosamente!');
+            consoleEl.textContent += '\n=== Ejecución(es) completadas exitosamente! ===\n';
         }
         loadLines();
     } catch (error) {
         console.error('Error executing model:', error);
-        consoleEl.textContent += `\\nFATAL ERROR: ${error.message}`;
-        alert('Error de conexión o ejecución del modelo.');
+        consoleEl.textContent += `\nERROR: ${error.message}\n`;
     } finally {
         if (btn) btn.disabled = false;
         if (loading) loading.style.display = 'none';
