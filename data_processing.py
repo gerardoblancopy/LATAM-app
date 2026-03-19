@@ -2036,6 +2036,7 @@ import sys
 
 try:
     print("Executing post-simulation extraction scripts to update all JSON files...")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     maintenance_dir = os.path.join(base_dir, "scripts", "maintenance")
     extract_gen_script = os.path.join(maintenance_dir, "extract_gen.py")
     extract_demand_script = os.path.join(maintenance_dir, "extract_demand.py")
