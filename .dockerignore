@@ -1,7 +1,10 @@
 node_modules/
 .git/
 __pycache__/
-S0/
-S1/
+data/scenarios/S1/
+data/scenario_experiments/
 *.log
 .env
+*.bak
+vercel.json
+legacy/
