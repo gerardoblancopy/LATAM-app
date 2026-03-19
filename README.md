@@ -1,3 +1,14 @@
+---
+title: LATAM Interconexión - Simulador de Remuneración
+emoji: ⚡
+colorFrom: indigo
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 # LATAM Interconexión App
 
 Aplicación web para simulación y visualización de interconexiones eléctricas LATAM.
