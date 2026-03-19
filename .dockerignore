@@ -1,8 +1,8 @@
 node_modules/
 .git/
 __pycache__/
-data/scenarios/S1/
 data/scenario_experiments/
+data/analysis/
 *.log
 .env
 *.bak
