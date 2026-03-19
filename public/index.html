@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f1117">
+    <title>OIRSE — Gedoblebe Power Simulator</title>
+
+    <!-- Google Fonts: Inter + Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css?v=8">
+    <style>
+        /* Modal Styles — OIRSE Dark */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background-color: var(--bg-surface);
+            margin: 5% auto;
+            padding: 24px;
+            border: 1px solid var(--border);
+            width: 80%;
+            max-width: 600px;
+            border-radius: var(--radius-lg);
+            font-family: var(--font-body);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .close {
+            color: var(--text-muted);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            transition: color 0.2s ease;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: var(--text-primary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group label {
+            flex: 1;
+            margin-right: 10px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .form-group select,
+        .form-group input[type="number"] {
+            flex: 1;
+        }
+
+        .form-group input[type="checkbox"] {
+            transform: scale(1.4);
+        }
+
+        .modal-content h2 {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 0;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .modal-content h3 {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        #save-config-btn {
+            background-color: var(--accent);
+            color: #fff;
+            padding: 10px 24px;
+            border: none;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 14px;
+            float: right;
+            transition: all 0.2s ease;
+        }
+
+        #save-config-btn:hover {
+            background-color: var(--accent-hover);
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <header id="platform-header">
+        <div class="platform-title-block">
+            <div class="platform-title-kicker">Plataforma</div>
+            <h1 class="platform-title-main">LATAM - Interconectando América Latina</h1>
+        </div>
+        <div class="platform-logos" aria-label="Instituciones colaboradoras">
+            <a href="https://www.centroenlace.org/" target="_blank" rel="noopener noreferrer"
+                title="Enlace - Centro para el Desarrollo Energético Sostenible">
+                <img
+                    src="https://res.cloudinary.com/dnh5bxvvy/image/upload/v1762958770/enlacelogo_cio5ge.png"
+                    alt="Enlace Logo">
+            </a>
+            <a href="https://uchile.cl/" target="_blank" rel="noopener noreferrer" title="Universidad de Chile">
+                <img
+                    src="https://res.cloudinary.com/dnh5bxvvy/image/upload/v1751649356/escudo-uchile-horizontal-color_bl-fondo-transp_ebnvfq.png"
+                    alt="Universidad de Chile Logo">
+            </a>
+            <a href="https://eie.pucv.cl/" target="_blank" rel="noopener noreferrer"
+                title="Escuela de Ingeniería Eléctrica - PUCV">
+                <img
+                    src="https://res.cloudinary.com/dnh5bxvvy/image/upload/v1751648586/ESCUELA_DE_INGENIER%C3%8DA_EL%C3%89CTRICA_blanco_d6oj7o.png"
+                    alt="Escuela de Ingeniería Eléctrica PUCV Logo">
+            </a>
+            <a href="https://isci.cl" target="_blank" rel="noopener noreferrer"
+                title="Instituto de Sistemas Complejos de Ingeniería">
+                <img src="https://res.cloudinary.com/dnh5bxvvy/image/upload/v1751649019/Logo-ISCI_eacof4.png"
+                    alt="ISCI Logo">
+            </a>
+        </div>
+    </header>
+    <div id="controls">
+        <div id="model-status" style="margin-bottom: 5px; font-weight: 600;">Estado: Esperando datos...
+        </div>
+        <div id="model-timestamp" style="margin-bottom: 10px; font-size: 0.8em; display: none;">Última
+            ejecución: --</div>
+
+        <button id="config-btn">⚙️ Configuración</button>
+
+        <div style="margin-top: 10px; margin-bottom: 10px;">
+            <label
+                style="font-weight: 600; font-size: 0.8em; display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Escenario
+                de Visualización:</label>
+            <div style="padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-elevated); color:var(--text-primary); font-weight:700; font-size:13px;">
+                S1 (Máx 1 Tx candidata) - Fijo
+            </div>
+            <input type="hidden" id="visualize-scenario" value="S1">
+        </div>
+
+        <div id="line-selection-info" style="display:none; margin-bottom:10px; font-size:0.85em;">
+            <div id="line-selection-hint">
+                <b>Escenario S1:</b> Click derecho sobre una línea <span style="color:var(--red);">roja (candidata)</span> en el mapa y selecciona <i>"Fijar variable X_LN en 1"</i> para elegir la interconexión a evaluar.
+                <br><span style="margin-top:4px; display:inline-block;">Si no seleccionas ninguna, el solver elegirá la mejor automáticamente.</span>
+            </div>
+            <div id="line-selected-display" style="display:none; background:var(--green-dim); border:1px solid var(--green); color:var(--green); padding:8px; border-radius:var(--radius-sm); margin-top:6px;">
+                <span id="line-selected-text"></span>
+                <a href="#" id="line-clear-selection" style="float:right; color:var(--green); font-weight:bold; text-decoration:none;" title="Quitar selección">✕</a>
+                <div style="clear:both;"></div>
+            </div>
+        </div>
+
+        <button id="run-model-btn">Ejecutar Modelo de Optimización</button>
+        <button id="view-remuneration-btn" type="button" disabled title="Ejecuta el modelo para habilitar">
+            Ver Resultados de Remuneraciones
+        </button>
+
+        <div id="loading" style="display:none;">Ejecutando modelo...</div>
+        <div id="console-output"></div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>⚙️ Configuración de Simulación</h2>
+            <form id="configForm">
+                <div class="form-group">
+                    <label for="year_obj">Año Objetivo:</label>
+                    <select id="year_obj" name="year_obj">
+                        <option value="2025" selected>2025</option>
+                        <option value="2040">2040</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="costo_combustible">Costo Combustible:</label>
+                    <select id="costo_combustible" name="costo_combustible">
+                        <option value="Cst_med" selected>Medio (Cst_med)</option>
+                        <option value="Cst_alto">Alto (Cst_alto)</option>
+                        <option value="Cst_bajo">Bajo (Cst_bajo)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="hidrologia">Hidrología:</label>
+                    <select id="hidrologia" name="hidrologia">
+                        <option value="H_media" selected>Media (H_media)</option>
+                        <option value="H_niño">Niño (H_niño)</option>
+                        <option value="H_niña">Niña (H_niña)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inversiones_intx">Inversiones Intx:</label>
+                    <select id="inversiones_intx" name="inversiones_intx">
+                        <option value="Con_intx" selected>Con Inversiones (Con_intx)</option>
+                        <option value="Sin_intx">Sin Inversiones (Sin_intx)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inversiones_gx">Inversiones Gx:</label>
+                    <select id="inversiones_gx" name="inversiones_gx">
+                        <option value="Sin_gx" selected>Sin Inversiones (Sin_gx)</option>
+                        <option value="Con_gx">Con Inversiones (Con_gx)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="demanda_tipo">Tipo de Demanda:</label>
+                    <select id="demanda_tipo" name="demanda_tipo">
+                        <option value="Dem_base" selected>Base (Dem_base)</option>
+                        <option value="Dem_elec">Electrificada (Dem_elec)</option>
+                    </select>
+                </div>
+
+                <hr>
+                <h3>Escenarios a ejecutar</h3>
+                <div class="form-group">
+                    <label for="run_S0">Escenario S0:</label>
+                    <input type="checkbox" id="run_S0" name="run_S0" checked>
+                </div>
+                <div class="form-group">
+                    <label for="run_S1">Escenario S1:</label>
+                    <input type="checkbox" id="run_S1" name="run_S1" checked>
+                </div>
+
+                <hr>
+
+                <div class="form-group">
+                    <label for="sincarbonCL">Sin Carbón CL:</label>
+                    <input type="checkbox" id="sincarbonCL" name="sincarbonCL">
+                </div>
+                <div class="form-group">
+                    <label for="bloquear_invtx_nacional">Bloquear InvTx Nacional:</label>
+                    <input type="checkbox" id="bloquear_invtx_nacional" name="bloquear_invtx_nacional" checked>
+                </div>
+                <div class="form-group">
+                    <label for="bloquear_invtx_existenteinternacional">Bloq. InvTx Existente Int.:</label>
+                    <input type="checkbox" id="bloquear_invtx_existenteinternacional"
+                        name="bloquear_invtx_existenteinternacional" checked>
+                </div>
+                <div class="form-group">
+                    <label for="flux0_internacional_candidata">Flux0 Int. Candidata:</label>
+                    <input type="checkbox" id="flux0_internacional_candidata" name="flux0_internacional_candidata">
+                </div>
+                <div class="form-group">
+                    <label for="ordendemerito">Orden de Mérito:</label>
+                    <input type="checkbox" id="ordendemerito" name="ordendemerito" checked>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button type="button" id="save-config-btn">Guardar y Cerrar</button>
+                    <div style="clear:both;"></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+
+    <!-- App Script -->
+    <script src="chart_helper.js?v=43"></script>
+    <script src="script.js?v=36"></script>
+</body>
+
+</html>

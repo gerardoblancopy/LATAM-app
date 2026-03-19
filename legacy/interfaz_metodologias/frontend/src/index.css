@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --oirse-bg-primary: #0f1117;
+  --oirse-bg-secondary: #161923;
+  --oirse-bg-surface: #1c1f2e;
+  --oirse-bg-elevated: #242838;
+  --oirse-bg-hover: #2a2f42;
+  --oirse-border: #2e3348;
+  --oirse-border-light: #363b52;
+  --oirse-text-primary: #edf0f5;
+  --oirse-text-secondary: #b0b8cc;
+  --oirse-text-muted: #8891a8;
+  --oirse-accent: #6366f1;
+  --oirse-accent-hover: #818cf8;
+  --oirse-accent-dim: rgba(99, 102, 241, 0.15);
+  --oirse-green: #34d399;
+  --oirse-red: #f87171;
+  --oirse-amber: #fbbf24;
+  --oirse-purple: #a78bfa;
+  --oirse-cyan: #22d3ee;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background: var(--oirse-bg-primary);
+    color: var(--oirse-text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  input,
+  select,
+  textarea {
+    background: var(--oirse-bg-elevated);
+    color: var(--oirse-text-primary);
+    border-color: var(--oirse-border);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--oirse-accent);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--oirse-bg-primary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--oirse-border-light);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #48506f;
+  }
+}
+
+@layer components {
+  .iridescent-border {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .iridescent-border::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #6366f1, #22d3ee, #a78bfa, #34d399, #fbbf24, #f87171, #6366f1);
+    background-size: 300% 100%;
+    animation: iridescent 6s linear infinite;
+  }
+
+  .kpi-card-oirse {
+    background: rgba(28, 31, 46, 0.86);
+    border: 1px solid var(--oirse-border);
+    border-radius: 12px;
+    padding: 0.95rem 1rem;
+    backdrop-filter: blur(12px);
+    transition: all 0.2s ease;
+  }
+
+  .kpi-card-oirse:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 18px rgba(99, 102, 241, 0.2);
+  }
+
+  .kpi-left-cyan {
+    border-left: 3px solid var(--oirse-cyan);
+  }
+
+  .kpi-left-green {
+    border-left: 3px solid var(--oirse-green);
+  }
+
+  .kpi-left-amber {
+    border-left: 3px solid var(--oirse-amber);
+  }
+
+  .kpi-left-red {
+    border-left: 3px solid var(--oirse-red);
+  }
+
+  .kpi-left-purple {
+    border-left: 3px solid var(--oirse-purple);
+  }
+
+  .oirse-number {
+    font-family: 'Fira Code', 'SF Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fast dark conversion layer for Methodologies component */
+  .oirse-methodologies .bg-white {
+    background-color: var(--oirse-bg-surface) !important;
+  }
+
+  .oirse-methodologies .bg-gray-50,
+  .oirse-methodologies .bg-gray-100 {
+    background-color: var(--oirse-bg-elevated) !important;
+  }
+
+  .oirse-methodologies .border-gray-100,
+  .oirse-methodologies .border-gray-200,
+  .oirse-methodologies .border-gray-300 {
+    border-color: var(--oirse-border) !important;
+  }
+
+  .oirse-methodologies .text-gray-500,
+  .oirse-methodologies .text-gray-600 {
+    color: var(--oirse-text-muted) !important;
+  }
+
+  .oirse-methodologies .text-gray-700,
+  .oirse-methodologies .text-gray-800,
+  .oirse-methodologies .text-gray-900 {
+    color: var(--oirse-text-primary) !important;
+  }
+
+  .oirse-methodologies table td,
+  .oirse-methodologies table th {
+    font-family: 'Fira Code', 'SF Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes iridescent {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}

@@ -1,0 +1,2201 @@
+
+// Helper to create a modal with a specific ID and content structure
+function createModal(modalId, zIndex) {
+    let modal = document.getElementById(modalId);
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: ${zIndex};
+            border-radius: 8px;
+            display: none;
+            flex-direction: column;
+        `;
+        document.body.appendChild(modal);
+    }
+    return modal;
+}
+
+// Function to load and display generation chart by Country
+function showGenerationChart(countryName) {
+    if (!countryName) return;
+
+    const modalId = 'gen-chart-modal';
+    let modal = createModal(modalId, 2000); // z-index 2000
+
+    // Reset content to ensure clean state
+    modal.innerHTML = '';
+    modal.style.width = '90%';
+    modal.style.maxWidth = '1000px';
+    modal.style.height = '600px';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        align-self: flex-end;
+        padding: 5px 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    `;
+    closeBtn.onclick = () => {
+        if (window.myGenChart) { window.myGenChart.destroy(); window.myGenChart = null; }
+        modal.style.display = 'none';
+    };
+
+    const canvasContainer = document.createElement('div');
+    canvasContainer.style.cssText = "flex-grow: 1; position: relative;";
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'gen-chart-canvas';
+    canvasContainer.appendChild(canvas);
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(canvasContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/generation?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => {
+            if (!res.ok) throw new Error("No available generation data");
+            return res.json();
+        })
+        .then(data => {
+            const countryData = data.countries[countryName];
+            if (!countryData) {
+                alert(`No hay datos de generación para el país: ${countryName}`);
+                modal.style.display = 'none';
+                return;
+            }
+
+            const timeSteps = data.time_steps;
+            const generation = countryData.generation;
+            const demand = countryData.demand;
+
+            // Define colors mapping
+            const techColors = {
+                'Hydro Pasada': '#5DADE2',
+                'Bioenergía': '#A9DFBF',
+                'Geotérmica': '#E74C3C',
+                'Hydro Embalse': '#3498DB',
+                'Solar': '#F4D03F',
+                'Eolica': '#388E3C',
+                'Nuclear': '#1F618D',
+                'Carbón': '#000000',
+                'Gas CC': '#7B241C',
+                'Gas CA': '#A93226',
+                'Diesel': '#808080',
+                'BESS Descarga': '#00BCD4',
+                'BESS Carga': '#ADD8E6',
+                'Loss Load': '#2F4F4F'
+            };
+
+            // Define specific stacking order (bottom to top)
+            const stackOrder = [
+                'Hydro Pasada', 'Bioenergía', 'Geotérmica', 'Hydro Embalse',
+                'Solar', 'Eolica', 'Nuclear', 'Carbón', 'Gas CC', 'Gas CA',
+                'Diesel', 'BESS Descarga', 'Loss Load'
+            ];
+
+            // Prepare datasets
+            const datasets = [];
+
+            const getOrderIndex = (tech) => {
+                const idx = stackOrder.indexOf(tech);
+                return idx === -1 ? 999 : idx;
+            };
+
+            const sortedTechs = Object.keys(generation).sort((a, b) => {
+                return getOrderIndex(a) - getOrderIndex(b);
+            });
+
+            sortedTechs.forEach(tech => {
+                let label = tech; // Use exact name for label
+                let dataPoints = generation[tech];
+                let color = techColors[tech] || '#' + Math.floor(Math.random() * 16777215).toString(16);
+
+                // Special handling for BESS Carga
+                if (tech === 'BESS Carga') {
+                    dataPoints = dataPoints.map(v => -Math.abs(v));
+                }
+
+                datasets.push({
+                    label: label,
+                    data: dataPoints,
+                    backgroundColor: color,
+                    borderColor: color,
+                    borderWidth: 1,
+                    fill: true,
+                    pointRadius: 0,
+                    tension: 0, // No smoothing
+                    order: 1, // Draw below demand
+                    stack: 'generation_stack' // Group all generation areas
+                });
+            });
+
+            // Add Demand Line LAST to ensure it renders on top
+            if (demand && demand.length > 0) {
+                datasets.push({
+                    label: 'Demanda',
+                    data: demand,
+                    type: 'line', // Line chart on top of stack
+                    borderColor: 'black',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0, // No smoothing, straight lines
+                    order: 0, // 0 = Highest priority (Topmost layer in Chart.js)
+                    stack: 'demand_stack' // Separate stack so it doesn't add to generation
+                });
+            }
+
+            const ctx = document.getElementById('gen-chart-canvas').getContext('2d');
+
+            if (window.myGenChart) { window.myGenChart.destroy(); window.myGenChart = null; }
+
+            window.myGenChart = new Chart(ctx, {
+                type: 'line', // Base type must be line to support stacked area + line
+                data: {
+                    labels: timeSteps,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Hora' },
+                            grid: { display: false }
+                        },
+                        y: {
+                            stacked: true, // Enable stacking
+                            title: { display: true, text: 'Generación [MW]' }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Generación por Tecnología - ${countryName}`
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            itemSort: function (a, b) {
+                                return b.datasetIndex - a.datasetIndex;
+                            }
+                        },
+                        legend: {
+                            position: 'bottom',
+                            reverse: true
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error cargando curva de generación. Verifica si el modelo fue ejecutado.");
+            modal.style.display = 'none';
+        });
+}
+
+
+// Function to load and display flow chart
+function showFlowChart(lineNames) {
+    if (!lineNames) return;
+    const names = Array.isArray(lineNames) ? lineNames : [lineNames];
+    if (names.length === 0) return;
+
+    const modalId = 'flow-chart-modal';
+    let modal = createModal(modalId, 2001); // z-index 2001
+
+    modal.innerHTML = '';
+    modal.style.width = '80%';
+    modal.style.maxWidth = '800px';
+    modal.style.height = '500px';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        align-self: flex-end;
+        padding: 5px 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    `;
+    closeBtn.onclick = () => {
+        if (window.myFlowChart) { window.myFlowChart.destroy(); window.myFlowChart = null; }
+        modal.style.display = 'none';
+    };
+
+    const canvasContainer = document.createElement('div');
+    canvasContainer.style.cssText = "flex-grow: 1; position: relative;";
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'flow-chart-canvas';
+    canvasContainer.appendChild(canvas);
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(canvasContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'gen-chart-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/flows?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(response => {
+            if (!response.ok) throw new Error("No flow data available");
+            return response.json();
+        })
+        .then(data => {
+            const timeSteps = data.time_steps;
+            const datasets = [];
+
+            const colors = [
+                'rgb(75, 192, 192)', 'rgb(255, 99, 132)', 'rgb(54, 162, 235)',
+                'rgb(255, 206, 86)', 'rgb(153, 102, 255)', 'rgb(255, 159, 64)'
+            ];
+
+            names.forEach((name, index) => {
+                const flows = data.flows[name];
+                if (flows) {
+                    datasets.push({
+                        label: `${name} [MW]`,
+                        data: flows,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length],
+                        tension: 0.1,
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        fill: false
+                    });
+                } else {
+                    console.warn(`No flow data for line: ${name}`);
+                }
+            });
+
+            if (datasets.length === 0) {
+                alert('No hay datos de flujo para las líneas seleccionadas.');
+                modal.style.display = 'none';
+                return;
+            }
+
+            const ctx = document.getElementById('flow-chart-canvas').getContext('2d');
+
+            if (window.myFlowChart) { window.myFlowChart.destroy(); window.myFlowChart = null; }
+
+            window.myFlowChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeSteps,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Periodo' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Flujo [MW]' },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        title: { display: true, text: `Comparación de Flujos de Potencia` },
+                        tooltip: { mode: 'index', intersect: false }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading flow data:', error);
+            alert('No se pudieron cargar los datos de flujo. Asegúrese de haber ejecutado el modelo primero.');
+            modal.style.display = 'none';
+        });
+}
+
+// Function to load and display Energy Summary (TWh) Bar Chart and Table by Country
+function showEnergySummary(countryName) {
+    if (!countryName) return;
+
+    const modalId = 'energy-chart-modal';
+    let modal = createModal(modalId, 2002); // z-index 2002
+
+    modal.innerHTML = '';
+    modal.style.width = '90%';
+    modal.style.maxWidth = '1000px';
+    modal.style.height = '85vh'; // Slightly taller
+    modal.style.overflowY = 'hidden'; // Main modal hidden, internal containers scroll
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        align-self: flex-end;
+        padding: 5px 10px;
+        margin-bottom: 5px;
+        cursor: pointer;
+    `;
+    closeBtn.onclick = () => {
+        if (window.myEnergyChart) { window.myEnergyChart.destroy(); window.myEnergyChart = null; }
+        modal.style.display = 'none';
+    };
+
+    // Structure: Flex column
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = "flex-grow: 1; display: flex; flex-direction: column; gap: 10px; overflow: hidden;";
+
+    // Table Area (Top, Flex 1 but limit height)
+    const tableContainer = document.createElement('div');
+    tableContainer.id = 'energy-table-container';
+    tableContainer.style.cssText = "flex: 1; overflow-y: auto; padding: 10px; background: #fafafa; border-radius: 4px; min-height: 200px;";
+
+    // Chart Area (Bottom, Flex 1 for Treemap)
+    const chartContainer = document.createElement('div');
+    chartContainer.style.cssText = "flex: 1; padding: 10px; background: white; border-radius: 4px; border-top: 1px solid #ddd; min-height: 250px; position: relative;";
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'energy-treemap-canvas';
+    chartContainer.appendChild(canvas);
+
+    contentContainer.appendChild(tableContainer);
+    contentContainer.appendChild(chartContainer);
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(contentContainer);
+
+    // Close other modals if open
+    ['gen-chart-modal', 'flow-chart-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/generation?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => res.json())
+        .then(data => {
+            const summaryData = data.energy_summary ? data.energy_summary[countryName] : null;
+            if (!summaryData) {
+                alert(`No hay resumen de energía para: ${countryName}. Asegúrate de ejecutar el modelo nuevamente.`);
+                modal.style.display = 'none';
+                return;
+            }
+
+            // Color Mapping
+            const techColors = {
+                'Hydro Pasada': '#5DADE2',
+                'Bioenergía': '#A9DFBF',
+                'Geotérmica': '#E74C3C',
+                'Hydro Embalse': '#3498DB',
+                'Solar': '#F4D03F',
+                'Eolica': '#388E3C',
+                'Nuclear': '#1F618D',
+                'Carbón': '#000000',
+                'Gas CC': '#7B241C',
+                'Gas CA': '#A93226',
+                'Diesel': '#808080',
+                'BESS Descarga': '#00BCD4',
+                'Loss Load': '#2F4F4F',
+                'Generic': '#999999'
+            };
+
+            // Prepare Table HTML
+            let tableHtml = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <h3 style="margin: 0;">Detalle de Energía - ${countryName}</h3>
+                    <span style="font-size: 0.9em; color: #666;"> (Valores en TWh)</span>
+                </div>
+                <table style="width:100%; border-collapse: collapse; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: white;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa; text-align: left; color: #333;">
+                            <th style="padding: 10px; border-bottom: 2px solid #dee2e6;">Tecnología / Ítem</th>
+                            <th style="padding: 10px; border-bottom: 2px solid #dee2e6; text-align: right;">Energía (TWh)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Data Processing for Table and Chart
+            const keys = Object.keys(summaryData);
+            const totalKeys = keys.filter(k => k.includes('DEMANDA') || k.includes('GX'));
+            const normalKeys = keys.filter(k => !k.includes('DEMANDA') && !k.includes('GX') && k !== 'Country');
+
+            normalKeys.sort();
+            totalKeys.sort((a, b) => {
+                if (a.includes('GX') && b.includes('DEMANDA')) return -1;
+                if (a.includes('DEMANDA') && b.includes('GX')) return 1;
+                return 0;
+            });
+
+            const sortedKeys = [...normalKeys, ...totalKeys];
+            const treemapData = []; // For Chart
+
+            sortedKeys.forEach(key => {
+                const val = summaryData[key];
+                const techName = key.replace(' (TWh)', '').trim();
+
+                // Formatting
+                let valFormatted = val;
+                if (typeof val === 'number') {
+                    valFormatted = val.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+                }
+
+                const isTotal = totalKeys.includes(key);
+                const rowStyle = isTotal
+                    ? "font-weight: bold; background-color: #e8f4fd; border-top: 2px solid #b6d4fe;"
+                    : "border-bottom: 1px solid #eee;";
+
+                if (key === 'Country') return;
+
+                tableHtml += `
+                    <tr style="${rowStyle}">
+                        <td style="padding: 8px 10px;">${techName}</td>
+                        <td style="padding: 8px 10px; text-align: right; font-family: monospace; font-size: 14px;">${valFormatted}</td>
+                    </tr>
+                `;
+
+                // Collect Data for Treemap
+                // Exclude: Totals, Country, Zero values, and specific items (Loss Load usually not in generation mix visualization unless requested)
+                // User asked for "rectangular chart proportional to value". Usually refers to Generation Mix.
+                if (!isTotal && techName !== 'BESS Carga' && val > 0.001) {
+                    treemapData.push({
+                        category: techName,
+                        value: val
+                    });
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
+
+            // Inject Table
+            const displayContainer = document.getElementById('energy-table-container');
+            if (displayContainer) displayContainer.innerHTML = tableHtml;
+
+            // Render Treemap Chart
+            const ctx = document.getElementById('energy-treemap-canvas').getContext('2d');
+
+            if (window.myEnergyChart) { window.myEnergyChart.destroy(); window.myEnergyChart = null; }
+
+            window.myEnergyChart = new Chart(ctx, {
+                type: 'treemap',
+                data: {
+                    datasets: [{
+                        tree: treemapData,
+                        key: 'value',
+                        groups: ['category'],
+                        backgroundColor: (ctx) => {
+                            if (ctx.type !== 'data') return 'transparent';
+                            const item = ctx.raw._data; // standard treemap data access
+                            const cat = item.category || item.label;
+                            return techColors[cat] || techColors['Generic'];
+                        },
+                        labels: {
+                            display: true,
+                            formatter: (ctx) => {
+                                if (ctx.type !== 'data') return;
+                                const item = ctx.raw._data;
+                                return [item.category, item.value.toFixed(2) + ' TWh'];
+                            },
+                            color: 'white',
+                            font: { size: 12, weight: 'bold' }
+                        },
+                        borderWidth: 1,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Composición Energética - ${countryName} (Treemap)`,
+                            font: { size: 14 }
+                        },
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => items[0].raw._data.category,
+                                label: (item) => {
+                                    const v = item.raw._data.value;
+                                    return v.toFixed(3) + ' TWh';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error cargando resumen de energía.");
+            modal.style.display = 'none';
+        });
+}
+
+// Function to load and display marginal costs chart by Country
+function showMarginalCostsChart(countryName) {
+    if (!countryName) return;
+
+    const modalId = 'mc-chart-modal';
+    let modal = createModal(modalId, 2003); // z-index 2003
+
+    modal.innerHTML = '';
+    modal.style.width = '90%';
+    modal.style.maxWidth = '1000px';
+    modal.style.height = '600px';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        align-self: flex-end;
+        padding: 5px 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    `;
+    closeBtn.onclick = () => {
+        if (window.myMcChart) { window.myMcChart.destroy(); window.myMcChart = null; }
+        modal.style.display = 'none';
+    };
+
+    const canvasContainer = document.createElement('div');
+    canvasContainer.style.cssText = "flex-grow: 1; position: relative;";
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'mc-chart-canvas';
+    canvasContainer.appendChild(canvas);
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(canvasContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/marginal-costs?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => {
+            if (!res.ok) throw new Error("No available marginal costs data");
+            return res.json();
+        })
+        .then(data => {
+            const countryData = data.countries[countryName];
+            if (!countryData) {
+                alert(`No hay datos de costos marginales para el país: ${countryName}`);
+                modal.style.display = 'none';
+                return;
+            }
+
+            const timeSteps = data.time_steps;
+            const datasets = [];
+
+            // Random colors for different nodes
+            const getRandomColor = () => {
+                const r = Math.floor(Math.random() * 200);
+                const g = Math.floor(Math.random() * 200);
+                const b = Math.floor(Math.random() * 200);
+                return `rgb(${r}, ${g}, ${b})`;
+            };
+
+            for (const [nodeName, mcValues] of Object.entries(countryData)) {
+
+                // Exclude arrays where all elements are null/NaN effectively
+                const hasValidData = mcValues.some(val => val !== null && !isNaN(val));
+                if (!hasValidData) continue;
+
+                datasets.push({
+                    label: `Nodo ${nodeName}`,
+                    data: mcValues,
+                    borderColor: getRandomColor(),
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    fill: false,
+                    spanGaps: true, // Connect lines across null values
+                    tension: 0
+                });
+            }
+
+            if (datasets.length === 0) {
+                alert(`No hay nodos con costos marginales en el país: ${countryName}`);
+                modal.style.display = 'none';
+                return;
+            }
+
+            const ctx = document.getElementById('mc-chart-canvas').getContext('2d');
+
+            if (window.myMcChart) { window.myMcChart.destroy(); window.myMcChart = null; }
+
+            window.myMcChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeSteps,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Hora' },
+                            grid: { display: false }
+                        },
+                        y: {
+                            title: { display: true, text: 'Costo Marginal [$]' }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Costo Marginal por barra - ${countryName}`
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        legend: {
+                            position: 'right'
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error cargando curva de costos marginales. Verifica si el modelo fue ejecutado.");
+            modal.style.display = 'none';
+        });
+}
+
+/* previous code ends before this function block */
+
+// Function to load and display marginal costs chart for nodes of a transmission line
+function showLineMarginalCostsChart(line) {
+    if (!line || !line.start.node || !line.end.node) return;
+
+    let modal = createModal('mc-chart-modal', 2003); // z-index 2003
+
+    modal.innerHTML = '';
+    modal.style.width = '90%';
+    modal.style.maxWidth = '1000px';
+    modal.style.height = '750px';
+    modal.style.flexDirection = 'column';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        align-self: flex-end;
+        padding: 5px 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+    `;
+    closeBtn.onclick = () => {
+        if (window.myMcChart) { window.myMcChart.destroy(); window.myMcChart = null; }
+        modal.style.display = 'none';
+    };
+
+    const contentWrapper = document.createElement('div');
+    contentWrapper.style.cssText = 'flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; gap: 15px;';
+
+    const canvasContainer = document.createElement('div');
+    canvasContainer.style.cssText = "flex-basis: 75%; flex-shrink: 0; position: relative;";
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'mc-chart-canvas';
+    canvasContainer.appendChild(canvas);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.id = 'mc-table-container';
+    tableContainer.style.cssText = "flex-basis: 25%; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; border-radius: 4px; padding: 10px;";
+
+    contentWrapper.appendChild(canvasContainer);
+    contentWrapper.appendChild(tableContainer);
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(contentWrapper);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    Promise.all([
+        fetch('/api/marginal-costs?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : Promise.reject("No available marginal costs data")),
+        fetch('/api/flows?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : null).catch(() => null)
+    ])
+        .then(([data, flowData]) => {
+            const timeSteps = data.time_steps;
+            const datasets = [];
+
+            const getRandomColor = () => {
+                const r = Math.floor(Math.random() * 200);
+                const g = Math.floor(Math.random() * 200);
+                const b = Math.floor(Math.random() * 200);
+                return `rgb(${r}, ${g}, ${b})`;
+            };
+
+            const nodesToFind = [
+                { country: line.start.country, node: line.start.node },
+                { country: line.end.country, node: line.end.node }
+            ];
+
+            let mcValues1 = [];
+            let mcValues2 = [];
+
+            nodesToFind.forEach((n, idx) => {
+                if (data.countries[n.country] && data.countries[n.country][n.node]) {
+                    const mcValues = data.countries[n.country][n.node];
+                    if (idx === 0) mcValues1 = mcValues;
+                    if (idx === 1) mcValues2 = mcValues;
+
+                    const hasValidData = mcValues.some(val => val !== null && !isNaN(val));
+                    if (hasValidData) {
+                        datasets.push({
+                            label: `Nodo ${n.node} (${n.country})`,
+                            data: mcValues,
+                            borderColor: getRandomColor(),
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            spanGaps: true,
+                            tension: 0
+                        });
+                    }
+                }
+            });
+
+            if (datasets.length === 0) {
+                alert(`No hay datos de costos marginales para los nodos de la línea: ${line.start.node} / ${line.end.node}`);
+                modal.style.display = 'none';
+                return;
+            }
+
+            const ctx = document.getElementById('mc-chart-canvas').getContext('2d');
+
+            if (window.myMcChart) { window.myMcChart.destroy(); window.myMcChart = null; }
+
+            window.myMcChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeSteps,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Hora' },
+                            grid: { display: false }
+                        },
+                        y: {
+                            title: { display: true, text: 'Costo Marginal [$]' }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Costo Marginal - Nodos Interconectados Línea ${line.name}`
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        legend: {
+                            position: 'right'
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+
+            // Compute the Rent Table
+            let rentValue = 0;
+            if (flowData && flowData.flows && flowData.flows[line.name]) {
+                const flows = flowData.flows[line.name];
+                for (let i = 0; i < timeSteps.length; i++) {
+                    const f = flows[i] || 0;
+                    const c1 = mcValues1[i] || 0;
+                    const c2 = mcValues2[i] || 0;
+                    rentValue += Math.abs(f) * Math.abs(c1 - c2);
+                }
+                rentValue *= 100; // time division
+            } else {
+                rentValue = null;
+            }
+
+            const tContainer = document.getElementById('mc-table-container');
+            tContainer.innerHTML = '';
+
+            const table = document.createElement('table');
+            table.style.cssText = "width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9em;";
+            table.innerHTML = `
+                <thead>
+                    <tr style="background-color: #f2f2f2; text-align: left;">
+                        <th style="padding: 10px; border-bottom: 2px solid #ddd;">Línea de Transmisión</th>
+                        <th style="padding: 10px; border-bottom: 2px solid #ddd; text-align: right;" title="Sumatoria en el tiempo de [ |Flujo(t)| * |CM_A(t) - CM_B(t)| ] * 100">Renta (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold;">${line.name}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">${rentValue !== null ? rentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Flujo no encontrado'}</td>
+                    </tr>
+                </tbody>
+            `;
+            tContainer.appendChild(table);
+
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error cargando curva de costos marginales o flujos.");
+            modal.style.display = 'none';
+        });
+}
+
+// Function to load and display generators summary
+function showGeneratorsSummary(countryName) {
+    if (!countryName) return;
+
+    const modalId = 'gens-summary-modal';
+    let modal = createModal(modalId, 2004); // high z-index
+
+    modal.innerHTML = '';
+    modal.style.width = '95%';
+    modal.style.maxWidth = '1200px';
+    modal.style.height = '80vh';
+    modal.style.flexDirection = 'column';
+
+    const headerContainer = document.createElement('div');
+    headerContainer.style.display = 'flex';
+    headerContainer.style.justifyContent = 'space-between';
+    headerContainer.style.alignItems = 'center';
+    headerContainer.style.width = '100%';
+    headerContainer.style.marginBottom = '15px';
+
+    const title = document.createElement('h2');
+    title.textContent = `Generadores - ${countryName}`;
+    title.style.margin = '0';
+    title.style.color = '#333';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        padding: 5px 15px;
+        cursor: pointer;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+    `;
+    closeBtn.onclick = () => modal.style.display = 'none';
+
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(closeBtn);
+    modal.appendChild(headerContainer);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.style.cssText = `
+        flex-grow: 1;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fafafa;
+    `;
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 0.8em;
+    `;
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr style="background-color: #f2f2f2; text-align: left;">
+            <th title="Nombre de conexión del generador en el modelo." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Nombre del Nodo</th>
+            <th title="Tipo de tecnología de generación del equipo." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Tecnología</th>
+            <th title="Capacidad de diseño de la planta." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Potencia Máxima (MW)</th>
+            <th title="Suma de nuevas inversiones en capacidad de diseño adicional." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Inversión (MW)</th>
+            <th title="Suma de Costos de combustible, O&M y otros por nodo/tecnología." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Costo Variable (USD/MWh)</th>
+            <th title="Suma total de la electricidad generada a lo largo del año." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Producción (MWh)</th>
+            <th title="Suma anual del (Costo Marginal Horario x Producción Horaria) en dicho nodo." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Revenue (USD)</th>
+            <th title="Costo Operativo Calculado = Producción Total MWh x Costo Variable USD/MWh." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Total Var Cost (USD)</th>
+            <th title="Beneficio Operativo = Revenue - Total Var Cost." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Profit (USD)</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    modal.appendChild(tableContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal', 'mc-chart-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/generators?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => {
+            if (!res.ok) throw new Error("No data available");
+            return res.json();
+        })
+        .then(data => {
+            const gens = data[countryName] || [];
+
+            if (gens.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="padding: 20px; text-align: center; color: #777;">No se encontraron generadores en ${countryName}</td></tr>`;
+                return;
+            }
+
+            // Sort optionally by technology and name
+            gens.sort((a, b) => a.tech.localeCompare(b.tech) || a.name.localeCompare(b.name));
+
+            let sumCapmax = 0;
+            let sumInv = 0;
+            let sumProd = 0;
+            let sumRev = 0;
+            let sumVarCost = 0;
+            let sumProfit = 0;
+
+            gens.forEach((gen, index) => {
+                sumCapmax += (gen.capmax || 0);
+                sumInv += (gen.inv_pot_MW || 0);
+                sumProd += (gen.prod || 0);
+                sumRev += (gen.rev || 0);
+                sumVarCost += (gen.total_var_cost || 0);
+                sumProfit += (gen.profit || 0);
+
+                const tr = document.createElement('tr');
+                tr.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+
+                tr.innerHTML = `
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${gen.name}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${gen.tech}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${gen.capmax.toFixed(2)}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${(gen.inv_pot_MW || 0).toFixed(2)}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${gen.cv.toFixed(2)}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${(gen.prod || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${(gen.rev || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${(gen.total_var_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${(gen.profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const subtitle = document.createElement('h3');
+            subtitle.textContent = 'Resumen';
+            subtitle.style.marginTop = '20px';
+            subtitle.style.marginBottom = '10px';
+            subtitle.style.color = '#333';
+            subtitle.style.flexShrink = '0';
+            modal.appendChild(subtitle);
+
+            const summaryTableContainer = document.createElement('div');
+            summaryTableContainer.style.cssText = `
+                flex-shrink: 0;
+                margin-top: 5px;
+                margin-bottom: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #fafafa;
+                overflow-x: auto;
+            `;
+
+            const summaryTable = document.createElement('table');
+            summaryTable.style.cssText = `
+                width: 100%;
+                border-collapse: collapse;
+                font-family: sans-serif;
+                font-size: 0.9em;
+            `;
+
+            summaryTable.innerHTML = `
+                <thead>
+                    <tr style="background-color: #dcedc8; text-align: left;">
+                        <th title="País al cual pertenecen los indicadores mostrados." style="padding: 12px 10px; border-bottom: 2px solid #ddd; cursor: help;">País</th>
+                        <th title="Suma de las potencias base de todos los generadores en ese país." style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right; cursor: help;">Capacidad Max Instalada (MW)</th>
+                        <th title="Nuevas inversiones resultantes de la expansión." style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right; cursor: help;">Inversión (MW)</th>
+                        <th title="Magnitud de MWh producidos al año en toda la jurisdicción." style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right; cursor: help;">Producción Total (MWh)</th>
+                        <th title="Suma de los ingresos (Revenue) en USD de todos los nodos en este pais." style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right; cursor: help;">Total Revenue (USD)</th>
+                        <th title="Suma de los costos operativos de todos sus equipos." style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right; cursor: help;">Total Var Cost (USD)</th>
+                        <th title="Ganancia acumulada del conjunto de equipos dentro del territorio." style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right; cursor: help;">Total Profit (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryName}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumCapmax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumInv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumProd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumVarCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            `;
+            summaryTableContainer.appendChild(summaryTable);
+            modal.appendChild(summaryTableContainer);
+
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="8" style="padding: 20px; text-align: center; color: red;">Error cargando datos. Verifica si el modelo extrajo los generadores.</td></tr>`;
+        });
+}
+
+function showStorageSummary(countryName) {
+    if (!countryName) return;
+
+    const modalId = 'storage-summary-modal';
+    let modal = createModal(modalId, 2004); // high z-index
+
+    modal.innerHTML = '';
+    modal.style.width = '60%';
+    modal.style.maxWidth = '600px';
+    modal.style.height = '60vh';
+    modal.style.flexDirection = 'column';
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        margin-bottom: 20px;
+    `;
+
+    const title = document.createElement('h2');
+    title.textContent = `Resumen de Almacenamiento (BESS) - ${countryName}`;
+    title.style.margin = '0';
+    title.style.color = '#333';
+    header.appendChild(title);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '❌';
+    closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        font-size: 1.2em;
+        cursor: pointer;
+        padding: 5px;
+    `;
+    closeBtn.onclick = () => {
+        modal.style.display = 'none';
+        modal.innerHTML = '';
+    };
+    header.appendChild(closeBtn);
+
+    modal.appendChild(header);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.style.cssText = `
+        flex-grow: 1;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fafafa;
+    `;
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 0.9em;
+    `;
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr style="background-color: #f2f2f2; text-align: left;">
+            <th title="Nombre del nodo de almacenamiento" style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Nombre del Nodo</th>
+            <th title="Capacidad de diseño existente en la ubicación." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Capacidad Existente (MW)</th>
+            <th title="Nuevas inversiones o expansión de capacidad en el nodo." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Nuevas Inversiones (MW)</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    modal.appendChild(tableContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal', 'mc-chart-modal', 'demand-summary-modal', 'trans-summary-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m && m.id !== modalId) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/storage?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => {
+            if (!res.ok) throw new Error("No data available");
+            return res.json();
+        })
+        .then(data => {
+            const storages = data[countryName] || [];
+
+            if (storages.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="padding: 20px; text-align: center; color: #777;">No se encontró almacenamiento en ${countryName}</td></tr>`;
+                return;
+            }
+
+            let sumCapmax = 0;
+            let sumInv = 0;
+
+            storages.forEach((st, index) => {
+                sumCapmax += (st.capmax || 0);
+                sumInv += (st.inv_pot_MW || 0);
+
+                const tr = document.createElement('tr');
+                tr.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+
+                tr.innerHTML = `
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd;">${st.name}</td>
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: right;">${(st.capmax || 0).toFixed(2)}</td>
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: right;">${(st.inv_pot_MW || 0).toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const summaryTableContainer = document.createElement('div');
+            summaryTableContainer.style.cssText = `
+                flex-shrink: 0;
+                margin-top: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #fafafa;
+                overflow-x: auto;
+            `;
+
+            const summaryTable = document.createElement('table');
+            summaryTable.style.cssText = `
+                width: 100%;
+                border-collapse: collapse;
+                font-family: sans-serif;
+                font-size: 0.9em;
+            `;
+
+            summaryTable.innerHTML = `
+                <thead>
+                    <tr style="background-color: #dcedc8; text-align: left;">
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">Total Nacional</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Capacidad Existente (MW)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Nuevas Inversiones (MW)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryName}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumCapmax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumInv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            `;
+            summaryTableContainer.appendChild(summaryTable);
+            modal.appendChild(summaryTableContainer);
+
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="3" style="padding: 20px; text-align: center; color: red;">Error cargando datos. Verifica si el modelo extrajo el almacenamiento.</td></tr>`;
+        });
+}
+
+function showDemandSummary(countryName) {
+    if (!countryName) return;
+
+    const modalId = 'demand-summary-modal';
+    let modal = createModal(modalId, 2005); // high z-index
+
+    modal.innerHTML = '';
+    modal.style.width = '60%';
+    modal.style.maxWidth = '600px';
+    modal.style.height = '60vh';
+    modal.style.flexDirection = 'column';
+
+    const headerContainer = document.createElement('div');
+    headerContainer.style.display = 'flex';
+    headerContainer.style.justifyContent = 'space-between';
+    headerContainer.style.alignItems = 'center';
+    headerContainer.style.width = '100%';
+    headerContainer.style.marginBottom = '15px';
+
+    const title = document.createElement('h2');
+    title.textContent = `Resumen de la demanda - ${countryName}`;
+    title.style.margin = '0';
+    title.style.color = '#333';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        padding: 5px 15px;
+        cursor: pointer;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+    `;
+    closeBtn.onclick = () => modal.style.display = 'none';
+
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(closeBtn);
+    modal.appendChild(headerContainer);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.style.cssText = `
+        flex-grow: 1;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fafafa;
+    `;
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 0.9em;
+    `;
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr style="background-color: #f2f2f2; text-align: left;">
+            <th title="Nombre del nodo dentro del modelo" style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Nombre del Nodo</th>
+            <th title="Suma total de demanda en la serie de tiempo para este nodo" style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right; cursor: help;">Demanda en MWh</th>
+            <th title="Suma (Demanda * Costo Marginal * 100) en el espacio temporal." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right; cursor: help;">Demand Cost (USD)</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    modal.appendChild(tableContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal', 'mc-chart-modal', 'gens-summary-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    fetch('/api/demand?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => {
+            if (!res.ok) throw new Error("No data available");
+            return res.json();
+        })
+        .then(data => {
+            const nodes = data[countryName] || [];
+
+            if (nodes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="padding: 20px; text-align: center; color: #777;">No se encontró demanda para ${countryName}</td></tr>`;
+                return;
+            }
+
+            nodes.sort((a, b) => a.node.localeCompare(b.node));
+
+            let sumDemand = 0;
+            let sumDemandCost = 0;
+
+            nodes.forEach((item, index) => {
+                sumDemand += (item.demand || 0);
+                sumDemandCost += (item.demand_cost || 0);
+
+                const tr = document.createElement('tr');
+                tr.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+
+                tr.innerHTML = `
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd;">${item.node}</td>
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: right;">${(item.demand || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: right;">${(item.demand_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Summary Table
+            const summaryTableContainer = document.createElement('div');
+            summaryTableContainer.style.cssText = `
+                flex-shrink: 0;
+                margin-top: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #fafafa;
+                overflow-x: auto;
+            `;
+
+            const summaryTable = document.createElement('table');
+            summaryTable.style.cssText = `
+                width: 100%;
+                border-collapse: collapse;
+                font-family: sans-serif;
+                font-size: 0.9em;
+            `;
+
+            summaryTable.innerHTML = `
+                <thead>
+                    <tr style="background-color: #dcedc8; text-align: left;">
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">País</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Demanda País MWh</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Demand Cost (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryName}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumDemand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumDemandCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            `;
+            summaryTableContainer.appendChild(summaryTable);
+            modal.appendChild(summaryTableContainer);
+
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="3" style="padding: 20px; text-align: center; color: red;">Error cargando datos de demanda. Verifica si el backend la leyó.</td></tr>`;
+        });
+}
+
+function showTransmissionSummary(countryCode) {
+    if (!countryCode) return;
+
+    const modalId = 'trans-summary-modal';
+    let modal = createModal(modalId, 2006); // high z-index
+
+    modal.innerHTML = '';
+    modal.style.width = '70%';
+    modal.style.maxWidth = '800px';
+    modal.style.height = '65vh';
+    modal.style.flexDirection = 'column';
+
+    const headerContainer = document.createElement('div');
+    headerContainer.style.display = 'flex';
+    headerContainer.style.justifyContent = 'space-between';
+    headerContainer.style.alignItems = 'center';
+    headerContainer.style.width = '100%';
+    headerContainer.style.marginBottom = '15px';
+
+    const title = document.createElement('h2');
+    title.textContent = `Resumen de Transmisión - Líneas Nacionales (${countryCode})`;
+    title.style.margin = '0';
+    title.style.color = '#333';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        padding: 5px 15px;
+        cursor: pointer;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+    `;
+    closeBtn.onclick = () => modal.style.display = 'none';
+
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(closeBtn);
+    modal.appendChild(headerContainer);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.style.cssText = `
+        flex-grow: 1;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fafafa;
+    `;
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 0.9em;
+    `;
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr style="background-color: #f2f2f2; text-align: left;">
+            <th title="Nombre de la línea de transmisión interna." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Línea de Transmisión Nacional</th>
+            <th title="Suma anual del (Valor Absoluto Flujo x Valor Absoluto Diferencia de Costos Marginales) x 100." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right; cursor: help;">Renta por Congestión (USD)</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    modal.appendChild(tableContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal', 'mc-chart-modal', 'gens-summary-modal', 'demand-summary-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    Promise.all([
+        fetch('/api/lines?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : []),
+        fetch('/api/marginal-costs?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch('/api/flows?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : null).catch(() => null)
+    ])
+        .then(([lines, mcData, flowData]) => {
+            let nationalLines = lines.filter(l => l.start && l.end && l.start.country === countryCode && l.end.country === countryCode);
+
+            if (nationalLines.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #777;">No se encontraron líneas de transmisión nacionales para ${countryCode}</td></tr>`;
+                return;
+            }
+
+            let totalRent = 0;
+            let validLinesCount = 0;
+            const timeStepsArray = mcData && mcData.time_steps ? mcData.time_steps : [];
+
+            nationalLines.forEach((line, index) => {
+                let rentValue = 0;
+                let foundData = false;
+
+                if (mcData && flowData && flowData.flows && flowData.flows[line.name]) {
+                    const flows = flowData.flows[line.name];
+
+                    let mcValues1 = [];
+                    let mcValues2 = [];
+
+                    if (mcData.countries[line.start.country]) mcValues1 = mcData.countries[line.start.country][line.start.node] || [];
+                    if (mcData.countries[line.end.country]) mcValues2 = mcData.countries[line.end.country][line.end.node] || [];
+
+                    if (mcValues1.length > 0 && mcValues2.length > 0 && flows.length > 0) {
+                        foundData = true;
+                        for (let i = 0; i < timeStepsArray.length; i++) {
+                            const f = flows[i] || 0;
+                            const c1 = mcValues1[i] || 0;
+                            const c2 = mcValues2[i] || 0;
+                            rentValue += Math.abs(f) * Math.abs(c1 - c2);
+                        }
+                        rentValue *= 100;
+                        totalRent += rentValue;
+                    }
+                }
+
+                const tr = document.createElement('tr');
+                tr.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+
+                let rentText = foundData ? rentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Datos inconsistentes';
+
+                tr.innerHTML = `
+                <td style="padding: 8px 10px; border-bottom: 1px solid #ddd;">${line.name}</td>
+                <td style="padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: right;">${rentText}</td>
+            `;
+                tbody.appendChild(tr);
+                if (foundData) validLinesCount++;
+            });
+
+            if (validLinesCount === 0 && nationalLines.length > 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #d32f2f;">Se hallaron líneas nacionales, pero existen problemas cargando sus flujos o costos marginales.</td></tr>`;
+            }
+
+            const summaryTableContainer = document.createElement('div');
+            summaryTableContainer.style.cssText = `
+            flex-shrink: 0;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fafafa;
+            overflow-x: auto;
+        `;
+
+            const summaryTable = document.createElement('table');
+            summaryTable.style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+            font-size: 0.9em;
+        `;
+
+            summaryTable.innerHTML = `
+            <thead>
+                <tr style="background-color: #dcedc8; text-align: left;">
+                    <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">País</th>
+                    <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Renta de Congestión Nacional (USD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryCode}</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${totalRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+            </tbody>
+        `;
+            summaryTableContainer.appendChild(summaryTable);
+            modal.appendChild(summaryTableContainer);
+
+            // --- INTERNATIONAL LINES SECTION --- //
+            const titleInt = document.createElement('h3');
+            titleInt.textContent = `Líneas Internacionales (${countryCode})`;
+            titleInt.style.margin = '20px 0 10px 0';
+            titleInt.style.color = '#333';
+            modal.appendChild(titleInt);
+
+            const intTableContainer = document.createElement('div');
+            intTableContainer.style.cssText = `
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fafafa;
+        `;
+
+            const intTable = document.createElement('table');
+            intTable.style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+            font-size: 0.9em;
+        `;
+
+            const intThead = document.createElement('thead');
+            intThead.innerHTML = `
+            <tr style="background-color: #f2f2f2; text-align: left;">
+                <th title="Nombre de la línea de transmisión internacional conectando a este país." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; cursor: help;">Línea de Transmisión Int.</th>
+                <th title="Suma anual del (Valor Absoluto Flujo x Valor Absoluto Diferencia de Costos Marginales) x 100." style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right; cursor: help;">Renta por Congestión (USD)</th>
+            </tr>
+        `;
+            intTable.appendChild(intThead);
+
+            const intTbody = document.createElement('tbody');
+            intTable.appendChild(intTbody);
+            intTableContainer.appendChild(intTable);
+            modal.appendChild(intTableContainer);
+
+            let internationalLines = lines.filter(l => l.start && l.end &&
+                ((l.start.country === countryCode && l.end.country !== countryCode) ||
+                    (l.end.country === countryCode && l.start.country !== countryCode)));
+
+            if (internationalLines.length === 0) {
+                intTbody.innerHTML = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #777;">No se encontraron interconexiones internacionales para ${countryCode}</td></tr>`;
+            } else {
+                let totalIntRent = 0;
+                let validIntLinesCount = 0;
+
+                internationalLines.forEach((line, index) => {
+                    let rentValue = 0;
+                    let foundData = false;
+
+                    if (mcData && flowData && flowData.flows && flowData.flows[line.name]) {
+                        const flows = flowData.flows[line.name];
+
+                        let mcValues1 = [];
+                        let mcValues2 = [];
+
+                        if (mcData.countries[line.start.country]) mcValues1 = mcData.countries[line.start.country][line.start.node] || [];
+                        if (mcData.countries[line.end.country]) mcValues2 = mcData.countries[line.end.country][line.end.node] || [];
+
+                        if (mcValues1.length > 0 && mcValues2.length > 0 && flows.length > 0) {
+                            foundData = true;
+                            for (let i = 0; i < timeStepsArray.length; i++) {
+                                const f = flows[i] || 0;
+                                const c1 = mcValues1[i] || 0;
+                                const c2 = mcValues2[i] || 0;
+                                rentValue += Math.abs(f) * Math.abs(c1 - c2);
+                            }
+                            rentValue *= 100;
+                            totalIntRent += rentValue;
+                        }
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+
+                    let rentText = foundData ? rentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'Datos inconsistentes';
+
+                    tr.innerHTML = `
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd;">${line.name}</td>
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #ddd; text-align: right;">${rentText}</td>
+                `;
+                    intTbody.appendChild(tr);
+                    if (foundData) validIntLinesCount++;
+                });
+
+                if (validIntLinesCount === 0 && internationalLines.length > 0) {
+                    intTbody.innerHTML = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #d32f2f;">Se hallaron líneas internacionales, pero existen problemas cargando sus flujos o costos marginales.</td></tr>`;
+                }
+
+                // International Summary Table
+                const intSummaryTableContainer = document.createElement('div');
+                intSummaryTableContainer.style.cssText = `
+                flex-shrink: 0;
+                margin-top: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #fafafa;
+                overflow-x: auto;
+            `;
+
+                const intSummaryTable = document.createElement('table');
+                intSummaryTable.style.cssText = `
+                width: 100%;
+                border-collapse: collapse;
+                font-family: sans-serif;
+                font-size: 0.9em;
+            `;
+
+                intSummaryTable.innerHTML = `
+                <thead>
+                    <tr style="background-color: #ffe0b2; text-align: left;">
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">País</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Renta de Congestión Internacional (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryCode}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${totalIntRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            `;
+                intSummaryTableContainer.appendChild(intSummaryTable);
+                modal.appendChild(intSummaryTableContainer);
+            }
+
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: red;">Error cargando datos de transmisión.</td></tr>`;
+        });
+}
+
+function showCountrySummary(countryCode) {
+    if (!countryCode) return;
+
+    const modalId = 'country-summary-modal';
+    let modal = createModal(modalId, 2007);
+
+    modal.innerHTML = '';
+    modal.style.width = '70%';
+    modal.style.maxWidth = '900px';
+    modal.style.height = 'auto';
+    modal.style.maxHeight = '90vh';
+    modal.style.flexDirection = 'column';
+
+    const headerContainer = document.createElement('div');
+    headerContainer.style.display = 'flex';
+    headerContainer.style.justifyContent = 'space-between';
+    headerContainer.style.alignItems = 'center';
+    headerContainer.style.width = '100%';
+    headerContainer.style.marginBottom = '15px';
+
+    const title = document.createElement('h2');
+    title.textContent = `Resumen General del País (${countryCode})`;
+    title.style.margin = '0';
+    title.style.color = '#333';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        padding: 5px 15px;
+        cursor: pointer;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+    `;
+    closeBtn.onclick = () => modal.style.display = 'none';
+
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(closeBtn);
+    modal.appendChild(headerContainer);
+
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = `
+        flex-grow: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    `;
+    modal.appendChild(contentContainer);
+
+    // Close other modals if open
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal', 'mc-chart-modal', 'gens-summary-modal', 'demand-summary-modal', 'trans-summary-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+
+    modal.style.display = 'flex';
+
+    Promise.all([
+        fetch('/api/generators?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : {}),
+        fetch('/api/demand?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : {}),
+        fetch('/api/lines?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : []),
+        fetch('/api/marginal-costs?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch('/api/flows?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0')).then(res => res.ok ? res.json() : null).catch(() => null)
+    ])
+        .then(([genData, demData, lines, mcData, flowData]) => {
+
+            // 1. Resumen de Generación
+            const gens = genData[countryCode] || [];
+            let sumCapmax = 0, sumInv = 0, sumProd = 0, sumRev = 0, sumVarCost = 0, sumProfit = 0;
+            gens.forEach(gen => {
+                sumCapmax += (gen.capmax || 0);
+                sumInv += (gen.inv_pot_MW || 0);
+                sumProd += (gen.prod || 0);
+                sumRev += (gen.rev || 0);
+                sumVarCost += (gen.total_var_cost || 0);
+                sumProfit += (gen.profit || 0);
+            });
+
+            const genTableContainer = document.createElement('div');
+            genTableContainer.style.cssText = "border: 1px solid #ddd; border-radius: 4px; background: #fafafa; overflow-x: auto;";
+            genTableContainer.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9em;">
+                <thead>
+                    <tr style="background-color: #dcedc8; text-align: left;">
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">País (Generación)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Capacidad Max Instalada (MW)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Inversión (MW)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Producción Total (MWh)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Revenue (USD)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Var Cost (USD)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Profit (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryCode}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumCapmax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumInv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumProd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumVarCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+            contentContainer.appendChild(genTableContainer);
+
+            // 2. Resumen de Demanda
+            const nodes = demData[countryCode] || [];
+            let sumDemand = 0, sumDemandCost = 0;
+            nodes.forEach(item => {
+                sumDemand += (item.demand || 0);
+                sumDemandCost += (item.demand_cost || 0);
+            });
+
+            const demTableContainer = document.createElement('div');
+            demTableContainer.style.cssText = "border: 1px solid #ddd; border-radius: 4px; background: #fafafa; overflow-x: auto;";
+            demTableContainer.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9em;">
+                <thead>
+                    <tr style="background-color: #e1bee7; text-align: left;">
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">País (Demanda)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Demanda País MWh</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Demand Cost (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryCode}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumDemand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${sumDemandCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+            contentContainer.appendChild(demTableContainer);
+
+            // 3. Renta por Congestión Internacional
+            let internationalLines = lines.filter(l => l.start && l.end &&
+                ((l.start.country === countryCode && l.end.country !== countryCode) ||
+                    (l.end.country === countryCode && l.start.country !== countryCode)));
+
+            let totalIntRent = 0;
+            const timeStepsArray = mcData && mcData.time_steps ? mcData.time_steps : [];
+
+            internationalLines.forEach(line => {
+                if (mcData && flowData && flowData.flows && flowData.flows[line.name]) {
+                    const flows = flowData.flows[line.name];
+                    let mcValues1 = [];
+                    let mcValues2 = [];
+
+                    if (mcData.countries[line.start.country]) mcValues1 = mcData.countries[line.start.country][line.start.node] || [];
+                    if (mcData.countries[line.end.country]) mcValues2 = mcData.countries[line.end.country][line.end.node] || [];
+
+                    if (mcValues1.length > 0 && mcValues2.length > 0 && flows.length > 0) {
+                        let rentValue = 0;
+                        for (let i = 0; i < timeStepsArray.length; i++) {
+                            const f = flows[i] || 0;
+                            const c1 = mcValues1[i] || 0;
+                            const c2 = mcValues2[i] || 0;
+                            rentValue += Math.abs(f) * Math.abs(c1 - c2);
+                        }
+                        totalIntRent += (rentValue * 100);
+                    }
+                }
+            });
+
+            const intTableContainer = document.createElement('div');
+            intTableContainer.style.cssText = "border: 1px solid #ddd; border-radius: 4px; background: #fafafa; overflow-x: auto;";
+            intTableContainer.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9em;">
+                <thead>
+                    <tr style="background-color: #ffe0b2; text-align: left;">
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd;">País (Transmisión Ext.)</th>
+                        <th style="padding: 12px 10px; border-bottom: 2px solid #ddd; text-align: right;">Total Renta de Congestión Internacional (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px 10px; font-weight: bold; border-bottom: 1px solid #ddd;">${countryCode}</td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #ddd;">${totalIntRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+            contentContainer.appendChild(intTableContainer);
+
+        })
+        .catch(err => {
+            console.error(err);
+            contentContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Error cargando el resumen general.</div>`;
+        });
+}
+
+function showTxInvestmentSummary() {
+    const modalId = 'tx-summary-modal';
+    let modal = createModal(modalId, 2010);
+
+    modal.innerHTML = '';
+    modal.style.width = '90%';
+    modal.style.maxWidth = '1200px';
+    modal.style.height = '80vh';
+    modal.style.flexDirection = 'column';
+
+    const headerContainer = document.createElement('div');
+    headerContainer.style.display = 'flex';
+    headerContainer.style.justifyContent = 'space-between';
+    headerContainer.style.alignItems = 'center';
+    headerContainer.style.width = '100%';
+    headerContainer.style.marginBottom = '15px';
+
+    const title = document.createElement('h2');
+    title.textContent = `Inversiones en Transmisión`;
+    title.style.margin = '0';
+    title.style.color = '#333';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        padding: 5px 15px;
+        cursor: pointer;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+    `;
+    closeBtn.onclick = () => modal.style.display = 'none';
+
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(closeBtn);
+    modal.appendChild(headerContainer);
+
+    const tableContainer = document.createElement('div');
+    tableContainer.style.cssText = `
+        flex-grow: 1;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fafafa;
+    `;
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 0.8em;
+    `;
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr style="background-color: #f2f2f2; text-align: left;">
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee;">Nombre línea</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee;">Desde</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee;">Hacia</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee;">From</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee;">To</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right;">Fmax</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right;">Fmax_inv</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right;">inv_MW</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right;">Decision</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right;">Costo_unitario</th>
+            <th style="padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 0; background: #eee; text-align: right;">Costo_total_USD</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    modal.appendChild(tableContainer);
+
+    modal.style.display = 'flex';
+
+    fetch('/api/tx-investment?scenario=' + (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S0'))
+        .then(res => {
+            if (!res.ok) throw new Error("No data available");
+            return res.json();
+        })
+        .then(data => {
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" style="padding: 20px; text-align: center; color: #777;">No se encontraron líneas</td></tr>`;
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.style.backgroundColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+                tr.innerHTML = `
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${item['Nombre línea']}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${item['Desde']}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${item['Hacia']}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${item['From']}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd;">${item['To']}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${item['Fmax'] !== undefined ? item['Fmax'] : '-'}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${item['Fmax_inv'] !== undefined ? item['Fmax_inv'] : '-'}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${item['inv_MW'] !== undefined ? item['inv_MW'] : '-'}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${item['Decision'] !== undefined ? item['Decision'] : '-'}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${item['Costo_unitario'] !== undefined ? Number(item['Costo_unitario']).toLocaleString() : '-'}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: right;">${item['Costo_total_USD'] !== undefined ? Number(item['Costo_total_USD']).toLocaleString() : '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="11" style="padding: 20px; text-align: center; color: red;">Error cargando datos de inversión en transmisión. Asegúrese de haber ejecutado el modelo.</td></tr>`;
+        });
+}
+
+
+// Helper functions for Tooltips and Formatting
+const formatCur = (val) => val != null && !isNaN(val) ? '$' + Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+const formatNum = (val) => val != null && !isNaN(val) ? Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+
+const createTooltipHTML = (label, description = '', formula = '', align = 'left') => {
+    let tooltipPos = 'left-0';
+    let arrowPos = 'left-4';
+    if (align === 'right') { tooltipPos = 'right-0'; arrowPos = 'right-4'; }
+    else if (align === 'center') { tooltipPos = 'left-1/2 transform -translate-x-1/2'; arrowPos = 'left-1/2 transform -translate-x-1/2'; }
+
+    return `
+        <div class="tooltip-container" style="position: relative; display: inline-flex; align-items: center; gap: 4px; cursor: default; width: max-content; max-width: 100%;">
+            <span>${label}</span>
+            ${(description || formula) ? `
+                <div style="cursor: help; color: #9ca3af; transition: color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#9ca3af'">
+                    <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div class="tooltip-content ${tooltipPos}" style="position: absolute; bottom: 100%; margin-bottom: 4px; display: none; width: 250px; padding: 12px; background: #1f2937; color: white; font-size: 12px; border-radius: 8px; font-weight: normal; text-transform: none; z-index: 50; white-space: normal; text-align: left; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                    ${description ? `<div style="color: #e5e7eb; line-height: 1.5;">${description}</div>` : ''}
+                    ${formula ? `
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #4b5563;">
+                            <span style="display: block; color: #9ca3af; font-size: 10px; text-transform: uppercase; margin-bottom: 4px; font-weight: 600;">Fórmula:</span>
+                            <code style="display: block; background: #111827; padding: 8px; border-radius: 4px; color: #93c5fd; font-size: 11px; word-break: break-all; font-family: monospace; border: 1px solid #374151;">${formula}</code>
+                        </div>
+                    ` : ''}
+                </div>
+            ` : ''}
+        </div>
+    `;
+};
+
+async function showMethodologyResults(lineName) {
+    if (!lineName) return;
+
+    const modalId = 'methodology-results-modal';
+    let modal = createModal(modalId, 2100);
+
+    modal.innerHTML = '';
+    modal.style.width = '95%';
+    modal.style.maxWidth = '1300px';
+    modal.style.height = '90vh';
+    modal.style.overflowY = 'auto';
+    modal.style.padding = '0';
+    modal.style.backgroundColor = '#f8f9fa';
+
+    // Helper Styles for Tooltip Hover (since React uses group-hover)
+    const styleBlock = document.createElement('style');
+    styleBlock.innerHTML = `
+        .tooltip-container:hover .tooltip-content { display: block !important; }
+        .res-card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 24px; overflow: hidden; border: 1px solid #e5e7eb; }
+        .res-card-header { padding: 16px 20px; font-weight: 600; font-size: 1.1rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 8px; background-color: #f9fafb; color: #1f2937; }
+        .res-card-body { padding: 20px; }
+        .res-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+        .res-table th { background-color: #f3f4f6; padding: 12px 16px; color: #374151; font-weight: 600; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+        .res-table td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #1f2937; }
+        .res-table tr:hover { background-color: #f9fafb; }
+        .stat-box { padding: 16px; border-radius: 6px; flex: 1; min-width: 200px; }
+        .form-input { width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; appearance: none; }
+        .form-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+        .form-label { display: block; font-size: 0.8rem; font-weight: 600; color: #4b5563; margin-bottom: 6px; }
+        .tab-btn { padding: 12px 24px; font-weight: 600; font-size: 1rem; border-bottom: 3px solid transparent; cursor: pointer; color: #6b7280; background: none; border-top: none; border-left: none; border-right: none; transition: all 0.2s; }
+        .tab-btn:hover { color: #1f2937; }
+        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+    `;
+    modal.appendChild(styleBlock);
+
+    // Header Structure
+    const headerContainer = document.createElement('div');
+    headerContainer.style.cssText = `display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: white; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
+    const title = document.createElement('h2');
+    title.textContent = `Resultados de Metodologías - Línea: ${lineName}`;
+    title.style.cssText = "margin: 0; font-size: 1.5rem; color: #1f2937; font-weight: 600;";
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = "background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #6b7280; line-height: 1; padding: 0 5px; border-radius: 4px;";
+    closeBtn.onclick = () => modal.style.display = 'none';
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(closeBtn);
+    modal.appendChild(headerContainer);
+
+    // Tabs Nav
+    const tabsContainer = document.createElement('div');
+    tabsContainer.style.cssText = "display: flex; background: white; border-bottom: 1px solid #e5e7eb; padding: 0 20px;";
+    modal.appendChild(tabsContainer);
+
+    // Content Area
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = "padding: 20px;";
+    contentContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;">Cargando y procesando datos (S0 y S1)... <br> <span style="font-size: 2rem;">⏳</span></div>';
+    modal.appendChild(contentContainer);
+
+    ['energy-chart-modal', 'flow-chart-modal', 'gen-chart-modal', 'mc-chart-modal', 'tx-investment-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = 'none';
+    });
+    modal.style.display = 'flex';
+
+    // Global Dataset Variables
+    let parsedNodes = lineName.split(' --> ');
+    let expNode = parsedNodes[0] ? parsedNodes[0].trim() : '';
+    let impNode = parsedNodes[1] ? parsedNodes[1].trim() : '';
+    let expCountry = expNode.split('_')[0]; // Simple heuristic: 'BO_ESTE' -> 'BO' 
+    let impCountry = impNode.split('_')[0]; // 'BR_SUDESTE/CO' -> 'BR'
+
+    let globalData = {}; // To store fetched S0/S1 data
+
+    // ----- STATE FOR TABS -----
+    // ASIA STATE
+    let asiaInputs = { capex_usd: 939644790.0, life_years: 25, r_annual: 0.06, om_frac_annual: 0.015, hours_year: 8760 };
+    let asiaMilesLine = 100;
+    let asiaMwMileRule = 'importer_pays';
+    let asiaProjectToYear = false;
+    let asiaExpostMethod = 'stamp';
+
+    // EUROPA STATE
+    let europaInputs = { itc_rate_usd_per_mwh: 0.50, cid_split: 0.50, infra_fund_usd_per_hour: 0.0, infra_split_ft: 0.75, infra_split_fl: 0.25 };
+    let europaExpostMethod = 'A1';
+
+    // SIEPAC STATE
+    let siepacInputs = { capex: 939644790.0, life_years: 25, r_annual: 0.06, om_frac_annual: 0.015, CVTn_sem_USD: 0.0, SCF_USD: 0.0, SCE_USD: 0.0, IVDT_USD: 0.0, alpha_R: 0.70, alpha_I: 0.30 };
+    let siepacTargetCountry = expCountry; // default
+
+    // Fetch and Process Logic
+    try {
+        const fetchJson = async (url) => { const res = await fetch(url); return res.ok ? res.json() : null; };
+
+        let targetScenario = (document.getElementById('visualize-scenario') ? document.getElementById('visualize-scenario').value : 'S1');
+        if (targetScenario !== 'S1') {
+            console.warn("Using S1 as the default CON scenario, user selected: " + targetScenario);
+        }
+
+        const [genS0, genS1, demS0, demS1, flowS0, flowS1, mcS0, mcS1, transS1] = await Promise.all([
+            fetchJson('/api/generators?scenario=S0'), fetchJson('/api/generators?scenario=S1'),
+            fetchJson('/api/demand?scenario=S0'), fetchJson('/api/demand?scenario=S1'),
+            fetchJson('/api/flows?scenario=S0'), fetchJson('/api/flows?scenario=S1'),
+            fetchJson('/api/marginal-costs?scenario=S0'), fetchJson('/api/marginal-costs?scenario=S1'),
+            fetchJson('/api/transmission-investment?scenario=' + targetScenario)
+        ]);
+
+        if (!genS1 || !demS1 || !flowS1 || !mcS1) throw new Error("Datos incompletos para el caso base o S1.");
+
+        globalData = { genS0, genS1, demS0, demS1, flowS0, flowS1, mcS0, mcS1 };
+
+        // Calculate initial CVT Semestral automatically
+        let calc_cvt = 0;
+        let lmpFrom = []; let lmpTo = [];
+        const findNodeLMPs = (d, nName) => {
+            for (const cntry in d.countries) { if (d.countries[cntry][nName]) return d.countries[cntry][nName]; }
+            return null;
+        };
+        lmpFrom = findNodeLMPs(mcS1, expNode);
+        lmpTo = findNodeLMPs(mcS1, impNode);
+        const lFlows = flowS1.flows && flowS1.flows[lineName] ? flowS1.flows[lineName] : [];
+
+        if (lmpFrom && lmpTo && lFlows.length > 0) {
+            for (let i = 0; i < lFlows.length; i++) {
+                const lmpF = lmpFrom[i] || 0; const lmpT = lmpTo[i] || 0; const f = lFlows[i] || 0;
+                calc_cvt += Math.abs(f * (lmpT - lmpF));
+            }
+        }
+        siepacInputs.IVDT_USD = Number(document.getElementById('sie_ivdt').value);
+        renderSiepac();
+    };
+}
+
+}

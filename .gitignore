@@ -1,0 +1,10 @@
+.venv/
+node_modules/
+.DS_Store
+.agent/
+.agents/
+.claude/
+__pycache__/
+*.pyc
+legacy/interfaz_metodologias/frontend/dist/
+legacy/interfaz_metodologias/frontend/node_modules/

@@ -1,0 +1,295 @@
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:17: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+  if not hasattr(np, 'bool'):
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pandas/core/computation/expressions.py:21: UserWarning: Pandas requires version '2.8.4' or newer of 'numexpr' (version '0.0.0' currently installed).
+  from pandas.core.computation.check import NUMEXPR_INSTALLED
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pandas/core/arrays/masked.py:61: UserWarning: Pandas requires version '1.3.6' or newer of 'bottleneck' (version '0.0.0' currently installed).
+  from pandas.core import (
+Matplotlib created a temporary cache directory at /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/matplotlib-2r97926s because the default path (/Users/gerardoblanco/.matplotlib) is not a writable directory; it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+
+Fontconfig error: No writable cache directories
+	/usr/local/var/cache/fontconfig
+	/Users/gerardoblanco/.cache/fontconfig
+	/Users/gerardoblanco/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/usr/local/var/cache/fontconfig
+	/Users/gerardoblanco/.cache/fontconfig
+	/Users/gerardoblanco/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/usr/local/var/cache/fontconfig
+	/Users/gerardoblanco/.cache/fontconfig
+	/Users/gerardoblanco/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/usr/local/var/cache/fontconfig
+	/Users/gerardoblanco/.cache/fontconfig
+	/Users/gerardoblanco/.fontconfig
+Received config: {"year_obj": 2025, "costo_combustible": "Cst_med", "hidrologia": "H_media", "inversiones_intx": "Con_intx", "sincarbonCL": false, "inversiones_gx": "Sin_gx", "demanda_tipo": "Dem_base", "bloquear_invtx_nacional": true, "bloquear_invtx_existenteinternacional": true, "flux0_internacional_candidata": false, "escenario_ejecucion": "S1_LINE_37", "ordendemerito": true, "linea_obj": 37}
+Demanda  Ember proyectada al año: 2025
+CL_NORTE--> 28.82	  TWh
+CL_CENTRO--> 43.35	  TWh
+CL_SUR--> 12.98	  TWh
+PE_NORTE--> 44.9	  TWh
+PE_SUR--> 18.82	  TWh
+BR_NORTE--> 75.4	  TWh
+BR_NORESTE--> 139.16	  TWh
+BR_FC--> 0.0	  TWh
+BR_SUDESTE/CO--> 414.68	  TWh
+BR_SUR--> 130.54	  TWh
+CO_NORTE--> 52.89	  TWh
+CO_SUR--> 32.42	  TWh
+BO_ESTE--> 5.71	  TWh
+BO_NOROESTE--> 5.71	  TWh
+BO_SUR--> 0.9	  TWh
+PY_NORTE--> 2.8	  TWh
+PY_SUR--> 1.8	  TWh
+PY_CENTRO/OESTE--> 11.99	  TWh
+PY_ESTE--> 3.4	  TWh
+NOA_CEN_LIT--> 57.71	  TWh
+COM_CUY--> 25.9	  TWh
+MERCADO--> 77.69	  TWh
+URUGUAY--> 12.14	  TWh
+EC_NORTE--> 14.05	  TWh
+EC_SUR--> 19.14	  TWh
+GU_NORTE--> 1.19	  TWh
+GU_SUR--> 8.92	  TWh
+GU_ESTE--> 1.12	  TWh
+GU_OESTE--> 2.4	  TWh
+ES_OCCIDENTAL--> 6.75	  TWh
+ES_ORIENTAL--> 1.23	  TWh
+HN_NORTE--> 7.13	  TWh
+HN_SUR--> 4.75	  TWh
+NI_NORTE--> 3.89	  TWh
+NI_SUR--> 1.59	  TWh
+CR_NORTE--> 4.37	  TWh
+CR_SUR--> 7.13	  TWh
+PA_NORTE--> 8.62	  TWh
+PA_SUR--> 4.06	  TWh
+VZ_NORTE--> 65.69	  TWh
+VZ_SUR--> 16.42	  TWh
+MX_SUR--> 357.17	  TWh
+BELICE--> 0.62	  TWh
+total -->  1735.93  TWh
+           Nodo_ini  Factor utilizacion pais
+0            MX_SUR                 0.765481
+1           GU_ESTE                 0.243290
+2          GU_NORTE                 0.243290
+3            MX_SUR                 0.765481
+4          GU_NORTE                 0.243290
+..              ...                      ...
+61    BR_SUDESTE/CO                 0.316301
+62    BR_SUDESTE/CO                 0.316301
+63         BR_NORTE                 0.316301
+64            BR_FC                 0.316301
+65  PY_CENTRO/OESTE                 0.243290
+
+[66 rows x 2 columns]
+Modelo cargado!- 09:46:25.310449
+Construyendo modelo...
+Modelo construido. Resolviendo...
+Fijando variables X_LN: lineas activas = [37]; resto = 0...
+Líneas fijadas en 1: [37].
+GLPSOL--GLPK LP/MIP Solver 5.0
+Parameter(s) specified in the command line:
+ --write /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp8lp8emja.glpk.raw
+ --wglp /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp59jx9zcf.glpk.glp
+ --cpxlp /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp2wigy3_y.pyomo.lp
+Reading problem data from '/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp2wigy3_y.pyomo.lp'...
+/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp2wigy3_y.pyomo.lp:718667: warning: lower bound of variable 'x115940' redefined
+/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp2wigy3_y.pyomo.lp:718667: warning: upper bound of variable 'x115940' redefined
+109721 rows, 88735 columns, 293131 non-zeros
+31 integer variables, all of which are binary
+718698 lines were read
+Writing problem data to '/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp59jx9zcf.glpk.glp'...
+687290 lines were written
+GLPK Integer Optimizer 5.0
+109721 rows, 88735 columns, 293131 non-zeros
+31 integer variables, all of which are binary
+Preprocessing...
+17577 rows, 38488 columns, 70728 non-zeros
+0 integer variables, none of which are binary
+Scaling...
+ A: min|aij| =  1.000e-02  max|aij| =  1.000e+02  ratio =  1.000e+04
+GM: min|aij| =  9.602e-01  max|aij| =  1.041e+00  ratio =  1.085e+00
+EQ: min|aij| =  9.220e-01  max|aij| =  1.000e+00  ratio =  1.085e+00
+2N: min|aij| =  7.812e-01  max|aij| =  1.280e+00  ratio =  1.638e+00
+Constructing initial basis...
+Size of triangular part is 17421
+Solving LP relaxation...
+GLPK Simplex Optimizer 5.0
+17577 rows, 38488 columns, 70728 non-zeros
+      0: obj =  -1.741567701e+12 inf =   4.369e+07 (7783)
+  20679: obj =  -4.729055204e+11 inf =   4.747e+06 (1871) 24
+  24864: obj =   6.180253827e+09 inf =   1.151e-11 (0) 10
+* 32203: obj =   5.572453358e+08 inf =   3.638e-14 (0) 52
+OPTIMAL LP SOLUTION FOUND
+Integer optimization begins...
+Long-step dual simplex will be used
++ 32203: mip =     not found yet >=              -inf        (1; 0)
++ 32203: >>>>>   5.572453358e+08 >=   5.572453358e+08   0.0% (1; 0)
++ 32203: mip =   5.572453358e+08 >=     tree is empty   0.0% (0; 1)
+INTEGER OPTIMAL SOLUTION FOUND
+Time used:   18.8 secs
+Memory used: 96.4 Mb (101054308 bytes)
+Writing MIP solution to '/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp8lp8emja.glpk.raw'...
+198465 lines were written
+Termination condition: optimal
+# ==========================================================
+# = Solver Results                                         =
+# ==========================================================
+# ----------------------------------------------------------
+#   Problem Information
+# ----------------------------------------------------------
+Problem: 
+- Name: unknown
+  Lower bound: 557245335.783846
+  Upper bound: 557245335.783846
+  Number of objectives: 1
+  Number of constraints: 109721
+  Number of variables: 88735
+  Number of nonzeros: 293131
+  Sense: minimize
+# ----------------------------------------------------------
+#   Solver Information
+# ----------------------------------------------------------
+Solver: 
+- Status: ok
+  Termination condition: optimal
+  Statistics: 
+    Branch and bound: 
+      Number of bounded subproblems: 1
+      Number of created subproblems: 1
+  Error rc: 0
+  Time: 19.381321907043457
+# ----------------------------------------------------------
+#   Solution Information
+# ----------------------------------------------------------
+Solution: 
+- number of solutions: 0
+  number of solutions displayed: 0
+Iniciando calculo de Costos Marginales...
+ERROR: Unable to clone Pyomo component attribute. Component 'Lineas_Tiempos'
+contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component
+'GeneradoresC_Tiempos' contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component
+'GeneradoresE_Tiempos' contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component
+'GeneradoresS_Tiempos' contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component
+'GeneradoresH_P_Tiempos' contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'Nodos_Tiempos'
+contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'G_T' contains an
+uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'G_TC' contains an
+uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'G_TS' contains an
+uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'G_TE' contains an
+uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'G_TBESS' contains
+an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'HP_T_PerfilMes'
+contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+ERROR: Unable to clone Pyomo component attribute. Component 'HE_T_PerfilMes'
+contains an uncopyable field '_init_values' (<class
+'pyomo.core.base.set.TuplizeValuesInitializer'>).  Setting field to `None` on
+new object
+[fix] Variables enteras/binarias fijadas: 66
+GLPSOL--GLPK LP/MIP Solver 5.0
+Parameter(s) specified in the command line:
+ --write /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp83qftc9b.glpk.raw
+ --wglp /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp67j2l00p.glpk.glp
+ --cpxlp /var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmpoaxcn5gb.pyomo.lp
+Reading problem data from '/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmpoaxcn5gb.pyomo.lp'...
+109721 rows, 88704 columns, 293069 non-zeros
+718573 lines were read
+Writing problem data to '/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp67j2l00p.glpk.glp'...
+613894 lines were written
+GLPK Simplex Optimizer 5.0
+109721 rows, 88704 columns, 293069 non-zeros
+Preprocessing...
+17753 rows, 38488 columns, 71080 non-zeros
+Scaling...
+ A: min|aij| =  1.000e-02  max|aij| =  1.000e+02  ratio =  1.000e+04
+GM: min|aij| =  9.602e-01  max|aij| =  1.041e+00  ratio =  1.085e+00
+EQ: min|aij| =  9.220e-01  max|aij| =  1.000e+00  ratio =  1.085e+00
+Constructing initial basis...
+Size of triangular part is 17597
+      0: obj =  -1.741567626e+12 inf =   2.663e+07 (7492)
+  18077: obj =  -7.195636292e+11 inf =   7.222e+06 (2020) 29
+  24317: obj =   5.504389341e+09 inf =   4.093e-12 (0) 18
+* 32243: obj =   5.572453358e+08 inf =   2.274e-13 (0) 55
+OPTIMAL LP SOLUTION FOUND
+Time used:   10.6 secs
+Memory used: 101.6 Mb (106532836 bytes)
+Writing basic solution to '/var/folders/wc/rq60t16j47x5hcb0slbkr5lw0000gn/T/tmp83qftc9b.glpk.raw'...
+198434 lines were written
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:1506: FutureWarning: DataFrame.groupby with axis=1 is deprecated. Do `frame.T.groupby(...)` without axis instead.
+  data_gen_pais = data_gen_csv.groupby(level=['País', 'Tecnología'], axis=1).sum()
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:1522: FutureWarning: DataFrame.groupby with axis=1 is deprecated. Do `frame.T.groupby(...)` without axis instead.
+  data_bess_pais = data_bess_csv.groupby(level=['País', 'Tecnología'], axis=1).sum()
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:1572: FutureWarning: DataFrame.groupby with axis=1 is deprecated. Do `frame.T.groupby(...)` without axis instead.
+  df_demanda_pais = df_to_group.groupby(axis=1, level=0).sum()
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:1646: FutureWarning: DataFrame.groupby with axis=1 is deprecated. Do `frame.T.groupby(...)` without axis instead.
+  generacion_TWh_nodo = data_gen_csv.groupby(axis=1, level=0).sum().sum() / 1000  # GWh -> TWh
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:1763: FutureWarning: DataFrame.groupby with axis=1 is deprecated. Do `frame.T.groupby(...)` without axis instead.
+  data_gen_pais = data_gen_csv.groupby(level=['País', 'Tecnología'], axis=1).sum()
+/Users/gerardoblanco/ECF 2 LATAM OIRSE /18.-Interfaces-ECF-Interconexion/data_processing.py:1770: FutureWarning: DataFrame.groupby with axis=1 is deprecated. Do `frame.T.groupby(...)` without axis instead.
+  df_demanda_pais = df_to_group.groupby(axis=1).sum()
+Generators exported
+Extracting demand data for ./S1_LINE_37...
+demand_summary.json created successfully.
+LP status: optimal
+Duales exportados a: ./S1_LINE_37/Costo_marginal_Resultados.xlsx
+marginal_costs.json created successfully in ./S1_LINE_37/marginal_costs.json
+DEBUG: Model has P variable. Starting extraction logic for folder ./S1_LINE_37
+Extracting detailed generation results...
+EXTRACTION LOG: P=15136, S=3784, E=3784
+EXTRACTION LOG: Bio=3784, Geo=3784, HE=3784, HP=3784, Nu=3784
+DEBUG: Extraction complete. data_gen_full is empty? False
+DEBUG: data_gen_full shape: (88, 602)
+Grouping results by country...
+Exporting specialized Excel files...
+Excel files exported successfully.
+Generating Energy Summary Table (TWh)...
+generation_results.json created successfully in ./S1_LINE_37/generation_results.json
+Plotting skipped/failed: You have to supply one of 'by' and 'level'
+Generating investment tables...
+Investment table saved to ./S1_LINE_37/Resultados_tabla_inversiones.xlsx
+Exporting transmission investment tables...
+Transmission investment files updated in ./S1_LINE_37
+Exporting results to JSON...
+Extracting time series flows...
+flows_results.json created successfully.
+lines_processed.json created successfully.
+Executing post-simulation extraction scripts to update all JSON files...
+Running extract_gen.py...
+Running extract_demand.py...
+All post-simulation extraction scripts completed successfully.

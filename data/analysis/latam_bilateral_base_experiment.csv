@@ -1,0 +1,7 @@
+line_id,name,original_classification,new_classification,status_change,iar_musd_y,cr_musd_y,residual_musd_y,use_pct
+38,COM_CUY --> CL_CENTRO,Viable solo con regionalización,Viable bilateralmente,mejora,28.686,121.238,0.0,81.07
+11,GU_SUR --> ES_OCCIDENTAL,No viable económicamente,Viable solo con regionalización,mejora,3.757,0.006,3.751,23.37
+32,EC_SUR --> PE_NORTE,No viable económicamente,Viable solo con regionalización,mejora,24.845,8.871,15.974,48.77
+14,ES_ORIENTAL --> HN_NORTE,No viable económicamente,No viable económicamente,igual,5.118,0.0,5.118,0.57
+9,GU_ESTE --> HN_NORTE,No viable económicamente,No viable económicamente,igual,4.605,0.001,4.605,2.21
+17,HN_SUR --> NI_NORTE,No viable económicamente,No viable económicamente,igual,5.883,0.004,5.878,15.97

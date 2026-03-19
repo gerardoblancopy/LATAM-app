@@ -1,0 +1,296 @@
+{
+  "CL": [
+    {
+      "name": "CL_NORTE",
+      "tech": "BESS",
+      "capmax": 564.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "CL_CENTRO",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "CL_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "PE": [
+    {
+      "name": "PE_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "PE_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "BR": [
+    {
+      "name": "BR_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "BR_NORESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "BR_FC",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "BR_SUDESTE/CO",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "BR_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "CO": [
+    {
+      "name": "CO_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "CO_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "BO": [
+    {
+      "name": "BO_ESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "BO_NOROESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "BO_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "PY": [
+    {
+      "name": "PY_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "PY_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "PY_CENTRO/OESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "PY_ESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "AR": [
+    {
+      "name": "NOA_CEN_LIT",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "COM_CUY",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "MERCADO",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "UY": [
+    {
+      "name": "URUGUAY",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "EC": [
+    {
+      "name": "EC_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "EC_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "GU": [
+    {
+      "name": "GU_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "GU_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "GU_ESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "GU_OESTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "ES": [
+    {
+      "name": "ES_OCCIDENTAL",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "ES_ORIENTAL",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "HN": [
+    {
+      "name": "HN_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "HN_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "NI": [
+    {
+      "name": "NI_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "NI_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "CR": [
+    {
+      "name": "CR_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "CR_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "PA": [
+    {
+      "name": "PA_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "PA_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "VZ": [
+    {
+      "name": "VZ_NORTE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    },
+    {
+      "name": "VZ_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "MX": [
+    {
+      "name": "MX_SUR",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ],
+  "BE": [
+    {
+      "name": "BELICE",
+      "tech": "BESS",
+      "capmax": 0.0,
+      "inv_pot_MW": 0.0
+    }
+  ]
+}
