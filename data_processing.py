@@ -1450,7 +1450,7 @@ def agrupar_y_exportar_resultados(model, data_gen, data_bess):
     ], names=['País', 'Tecnología'])
 
     # Group by Country and Tech
-    data_gen_pais = data_gen_csv.groupby(level=['País', 'Tecnología'], axis=1).sum()
+    data_gen_pais = data_gen_csv.T.groupby(level=['País', 'Tecnología']).sum().T
 
     # === Agrupar datos BESS por país ===
     data_bess_pais = pd.DataFrame()
@@ -1466,7 +1466,7 @@ def agrupar_y_exportar_resultados(model, data_gen, data_bess):
                 (map_nodos_a_pais_completo[nodo], tecnologia) for nodo, tecnologia in data_bess_csv.columns
             ], names=['País', 'Tecnología'])
 
-            data_bess_pais = data_bess_csv.groupby(level=['País', 'Tecnología'], axis=1).sum()
+            data_bess_pais = data_bess_csv.T.groupby(level=['País', 'Tecnología']).sum().T
         except Exception as e:
             print(f"Error grouping BESS by country: {e}")
 
@@ -1516,7 +1516,7 @@ def agrupar_y_exportar_resultados(model, data_gen, data_bess):
         df_to_group.columns = [map_nodos_a_pais_completo.get(col, col) for col in df_to_group.columns]
         
         # Group by Country
-        df_demanda_pais = df_to_group.groupby(axis=1, level=0).sum()
+        df_demanda_pais = df_to_group.T.groupby(level=0).sum().T
         
     except Exception as e:
         print(f"Error processing demand: {e}")
@@ -1590,7 +1590,7 @@ def agrupar_y_exportar_resultados(model, data_gen, data_bess):
         
             # GENERACIÓN total por nodo
             data_gen_csv = data_gen_arg.copy()
-            generacion_TWh_nodo = data_gen_csv.groupby(axis=1, level=0).sum().sum() / 1000  # GWh -> TWh
+            generacion_TWh_nodo = data_gen_csv.T.groupby(level=0).sum().T.sum() / 1000  # GWh -> TWh
         
             # Combinar en tabla
             tabla_resumen_tmp = pd.DataFrame({
@@ -1707,14 +1707,14 @@ try:
                 data_gen_csv.columns = pd.MultiIndex.from_tuples([
                     (map_nodos_a_pais.get(nodo, nodo), tecnologia) for nodo, tecnologia in data_gen_csv.columns
                 ], names=['País', 'Tecnología'])
-                data_gen_pais = data_gen_csv.groupby(level=['País', 'Tecnología'], axis=1).sum()
+                data_gen_pais = data_gen_csv.T.groupby(level=['País', 'Tecnología']).sum().T
                 
                 # Demand
                 df_demanda = Dem.copy()
                 df_demanda = df_demanda[df_demanda["t"].isin(list(range(1, T+1, division)))]
                 df_to_group = df_demanda.drop(columns=['t', 'time'], errors='ignore')
                 df_to_group.columns = [map_nodos_a_pais.get(col, col) for col in df_to_group.columns]
-                df_demanda_pais = df_to_group.groupby(axis=1).sum()
+                df_demanda_pais = df_to_group.T.groupby(level=0).sum().T
 
                 # Call plotting
                 print("Generating generation plots...")

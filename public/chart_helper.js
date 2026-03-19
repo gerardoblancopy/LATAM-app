@@ -2349,7 +2349,7 @@ async function showMethodologyResults(lineName) {
             ? (precomputedLatam.scenario || targetScenario || 'S1')
             : (targetScenario || 'S1');
 
-        const [genS0, genS1, demS0, demS1, flowS0, flowS1, mcS0, mcS1, transS1, linesS1] = await Promise.all([
+        let [genS0, genS1, demS0, demS1, flowS0, flowS1, mcS0, mcS1, transS1, linesS1] = await Promise.all([
             fetchJson('/api/generators?scenario=' + baselineScenario), fetchJson('/api/generators?scenario=' + conScenario),
             fetchJson('/api/demand?scenario=' + baselineScenario), fetchJson('/api/demand?scenario=' + conScenario),
             fetchJson('/api/flows?scenario=' + baselineScenario), fetchJson('/api/flows?scenario=' + conScenario),
@@ -2357,6 +2357,19 @@ async function showMethodologyResults(lineName) {
             fetchJson('/api/transmission-investment?scenario=' + conScenario),
             fetchJson('/api/lines?scenario=' + conScenario)
         ]);
+
+        // Fallback to S0/S1 if precomputed scenario folders don't exist
+        if ((!genS1 || !demS1 || !flowS1 || !mcS1) && (baselineScenario !== 'S0' || conScenario !== 'S1')) {
+            console.warn(`Precomputed scenarios (${baselineScenario}/${conScenario}) not found, falling back to S0/S1`);
+            [genS0, genS1, demS0, demS1, flowS0, flowS1, mcS0, mcS1, transS1, linesS1] = await Promise.all([
+                fetchJson('/api/generators?scenario=S0'), fetchJson('/api/generators?scenario=S1'),
+                fetchJson('/api/demand?scenario=S0'), fetchJson('/api/demand?scenario=S1'),
+                fetchJson('/api/flows?scenario=S0'), fetchJson('/api/flows?scenario=S1'),
+                fetchJson('/api/marginal-costs?scenario=S0'), fetchJson('/api/marginal-costs?scenario=S1'),
+                fetchJson('/api/transmission-investment?scenario=S1'),
+                fetchJson('/api/lines?scenario=S1')
+            ]);
+        }
 
         if (!genS1 || !demS1 || !flowS1 || !mcS1) throw new Error("Datos incompletos para el caso base o S1.");
 

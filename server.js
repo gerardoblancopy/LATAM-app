@@ -10,11 +10,12 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 app.use(cors());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json()); // Enable JSON body parsing
 
 // Disable caching for API endpoints
 app.use((req, res, next) => {
+    if (req.path === '/api/run-model') return next();
     res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     res.header('Expires', '-1');
     res.header('Pragma', 'no-cache');
@@ -38,7 +39,7 @@ app.post('/api/run-model', (req, res) => {
     const config = req.body;
     console.log('Configuration received:', config);
 
-    const pythonPath = process.env.PYTHON_CMD || (process.platform === 'darwin' ? 'arch -arm64 python3' : 'python3');
+    const pythonCmd = process.env.PYTHON_CMD || '';
     const configStr = JSON.stringify(config);
 
     // Set up Server-Sent Events
@@ -53,10 +54,27 @@ app.post('/api/run-model', (req, res) => {
         res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
     };
 
-    const pythonArgs = pythonPath.includes(' ')
-        ? pythonPath.split(' ').slice(1).concat(['data_processing.py', configStr])
-        : ['data_processing.py', configStr];
-    const pythonBin = pythonPath.includes(' ') ? pythonPath.split(' ')[0] : pythonPath;
+    // Keepalive every 15s to prevent proxy timeouts
+    const keepalive = setInterval(() => {
+        res.write(': keepalive\n\n');
+    }, 15000);
+
+    // Resolve Python binary and arguments
+    let pythonBin, pythonArgs;
+    if (pythonCmd && process.platform === 'darwin') {
+        // macOS + custom PYTHON_CMD: wrap with arch -arm64 for correct native libs
+        pythonBin = 'arch';
+        pythonArgs = ['-arm64', pythonCmd, 'data_processing.py', configStr];
+    } else if (pythonCmd) {
+        pythonBin = pythonCmd;
+        pythonArgs = ['data_processing.py', configStr];
+    } else if (process.platform === 'darwin') {
+        pythonBin = 'arch';
+        pythonArgs = ['-arm64', 'python3', 'data_processing.py', configStr];
+    } else {
+        pythonBin = 'python3';
+        pythonArgs = ['data_processing.py', configStr];
+    }
 
     const child = spawn(pythonBin, pythonArgs, {
         cwd: __dirname,
@@ -79,7 +97,12 @@ app.post('/api/run-model', (req, res) => {
         });
     });
 
+    let finished = false;
+
     child.on('close', (code) => {
+        clearInterval(keepalive);
+        if (finished) return;
+        finished = true;
         if (code === 0) {
             sendEvent('done', 'Model executed successfully');
         } else {
@@ -88,8 +111,20 @@ app.post('/api/run-model', (req, res) => {
         res.end();
     });
 
-    req.on('close', () => {
-        child.kill();
+    child.on('error', (err) => {
+        if (finished) return;
+        finished = true;
+        console.error('Spawn error:', err);
+        sendEvent('error', err.message);
+        res.end();
+    });
+
+    // Kill child only if the response connection is destroyed (client navigated away)
+    res.on('close', () => {
+        if (!finished) {
+            console.log('Response connection closed — killing Python process');
+            child.kill();
+        }
     });
 });
 
