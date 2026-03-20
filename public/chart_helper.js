@@ -2206,7 +2206,7 @@ async function showMethodologyResults(lineName) {
         .tooltip-container:hover .tooltip-content { display: block !important; }
         .res-card { background: ${OIRSE_THEME.bgSurface}; border-radius: 12px; box-shadow: ${OIRSE_THEME.shadow}; margin-bottom: 24px; border: 1px solid ${OIRSE_THEME.border}; }
         .res-card-header { padding: 16px 20px; font-weight: 700; font-size: 1.06rem; border-bottom: 1px solid ${OIRSE_THEME.border}; display: flex; align-items: center; gap: 8px; background-color: ${OIRSE_THEME.bgElevated}; color: ${OIRSE_THEME.textPrimary}; border-top-left-radius: 12px; border-top-right-radius: 12px; }
-        .res-card-body { padding: 20px; overflow: visible; }
+        .res-card-body { padding: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .res-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; color: ${OIRSE_THEME.textPrimary}; }
         .res-table th { background-color: ${OIRSE_THEME.bgElevated}; padding: 12px 16px; color: ${OIRSE_THEME.textSecondary}; font-weight: 700; border-bottom: 1px solid ${OIRSE_THEME.border}; white-space: nowrap; }
         .res-table td { padding: 12px 16px; border-bottom: 1px solid ${OIRSE_THEME.border}; color: ${OIRSE_THEME.textPrimary}; font-family: "Fira Code", "SF Mono", "Cascadia Code", monospace; font-variant-numeric: tabular-nums; }
