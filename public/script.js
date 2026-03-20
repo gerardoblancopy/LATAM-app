@@ -1,5 +1,6 @@
-const INITIAL_MAP_CENTER = [-15.0, -60.0];
-const INITIAL_MAP_ZOOM = 3;
+const IS_MOBILE = window.innerWidth <= 560;
+const INITIAL_MAP_CENTER = IS_MOBILE ? [-40.0, -65.0] : [-15.0, -60.0];
+const INITIAL_MAP_ZOOM = IS_MOBILE ? 2.5 : 3.2;
 
 // Initialize map centered on South America
 const map = L.map('map').setView(INITIAL_MAP_CENTER, INITIAL_MAP_ZOOM);
@@ -1846,44 +1847,36 @@ document.getElementById('run-model-btn').addEventListener('click', async () => {
     // Helper: run one scenario via SSE streaming
     const runScenarioSSE = (configData) => {
         return new Promise((resolve, reject) => {
-            const controller = new AbortController();
-            fetch('/api/run-model', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(configData),
-                signal: controller.signal
-            }).then(response => {
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/run-model');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            let lastIndex = 0;
+            let settled = false;
 
-                const pump = () => {
-                    reader.read().then(({ done, value }) => {
-                        if (done) { resolve({ ok: true }); return; }
-                        buffer += decoder.decode(value, { stream: true });
-                        const parts = buffer.split('\n\n');
-                        buffer = parts.pop();
-                        for (const part of parts) {
-                            const match = part.match(/^data:\s*(.+)$/m);
-                            if (!match) continue;
-                            try {
-                                const evt = JSON.parse(match[1]);
-                                if (evt.type === 'log') {
-                                    consoleEl.textContent += evt.data + '\n';
-                                    consoleEl.scrollTop = consoleEl.scrollHeight;
-                                } else if (evt.type === 'error') {
-                                    reject(new Error(evt.data));
-                                    return;
-                                } else if (evt.type === 'done') {
-                                    // done handled by stream close
-                                }
-                            } catch (e) { /* ignore parse errors */ }
+            xhr.onprogress = () => {
+                const newData = xhr.responseText.substring(lastIndex);
+                lastIndex = xhr.responseText.length;
+                const parts = newData.split('\n\n');
+                for (const part of parts) {
+                    const match = part.match(/^data:\s*(.+)$/m);
+                    if (!match) continue;
+                    try {
+                        const evt = JSON.parse(match[1]);
+                        if (evt.type === 'log') {
+                            consoleEl.textContent += evt.data + '\n';
+                            consoleEl.scrollTop = consoleEl.scrollHeight;
+                        } else if (evt.type === 'error' && !settled) {
+                            settled = true;
+                            reject(new Error(evt.data));
+                            return;
                         }
-                        pump();
-                    }).catch(reject);
-                };
-                pump();
-            }).catch(reject);
+                    } catch (e) { /* ignore parse errors */ }
+                }
+            };
+
+            xhr.onload = () => { if (!settled) { settled = true; resolve({ ok: true }); } };
+            xhr.onerror = () => { if (!settled) { settled = true; reject(new Error('Error de conexión')); } };
+            xhr.send(JSON.stringify(configData));
         });
     };
 

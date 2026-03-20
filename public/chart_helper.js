@@ -2191,11 +2191,13 @@ async function showMethodologyResults(lineName) {
     let modal = createModal(modalId, 2100);
 
     modal.innerHTML = '';
-    modal.style.width = '95%';
-    modal.style.maxWidth = '1300px';
-    modal.style.height = '90vh';
+    const isMobile = window.innerWidth <= 560;
+    modal.style.width = isMobile ? '100%' : '95%';
+    modal.style.maxWidth = isMobile ? '100%' : '1300px';
+    modal.style.height = isMobile ? '100vh' : '90vh';
     modal.style.overflowY = 'auto';
     modal.style.padding = '0';
+    modal.style.borderRadius = isMobile ? '0' : '8px';
     modal.style.backgroundColor = OIRSE_THEME.bgPrimary;
 
     // Helper Styles for Tooltip Hover (since React uses group-hover)
@@ -2238,18 +2240,35 @@ async function showMethodologyResults(lineName) {
         .res-note-card strong {
             color: ${OIRSE_THEME.textPrimary};
         }
+
+        /* Mobile responsive */
+        @media (max-width: 560px) {
+            .res-card { border-radius: 8px; margin-bottom: 14px; }
+            .res-card-header { padding: 10px 12px; font-size: 0.82rem; gap: 6px; border-radius: 8px 8px 0 0; }
+            .res-card-body { padding: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .res-table { font-size: 0.7rem; min-width: 420px; }
+            .res-table th { padding: 6px 7px; font-size: 0.62rem; white-space: nowrap; }
+            .res-table td { padding: 6px 7px; font-size: 0.68rem; white-space: nowrap; }
+            .stat-box { padding: 8px 10px; min-width: 110px; }
+            .stat-box > div:first-child { font-size: 0.55rem; }
+            .stat-box > div:last-child { font-size: 0.9rem; }
+            .tab-btn { padding: 8px 12px; font-size: 0.75rem; }
+            .form-input { padding: 6px 8px; font-size: 0.8rem; }
+            .form-label { font-size: 0.65rem; margin-bottom: 4px; }
+            .res-note-card { padding: 10px; font-size: 0.82rem; }
+        }
     `;
     modal.appendChild(styleBlock);
 
     // Header Structure
     const headerContainer = document.createElement('div');
-    headerContainer.style.cssText = `display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: ${OIRSE_THEME.bgElevated}; border-bottom: 1px solid ${OIRSE_THEME.border}; position: sticky; top: 0; z-index: 10; box-shadow: 0 8px 18px rgba(0,0,0,0.35);`;
+    headerContainer.style.cssText = `display: flex; justify-content: space-between; align-items: center; padding: ${isMobile ? '10px 12px' : '15px 20px'}; background-color: ${OIRSE_THEME.bgElevated}; border-bottom: 1px solid ${OIRSE_THEME.border}; position: sticky; top: 0; z-index: 10; box-shadow: 0 8px 18px rgba(0,0,0,0.35);`;
     const title = document.createElement('h2');
-    title.textContent = `Resultados de Metodologías - Línea: ${lineName}`;
-    title.style.cssText = `margin: 0; font-size: 1.4rem; color: ${OIRSE_THEME.textPrimary}; font-weight: 700;`;
+    title.textContent = isMobile ? lineName : `Resultados de Metodologías - Línea: ${lineName}`;
+    title.style.cssText = `margin: 0; font-size: ${isMobile ? '1rem' : '1.4rem'}; color: ${OIRSE_THEME.textPrimary}; font-weight: 700;`;
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = `background: ${OIRSE_THEME.bgSurface}; border: 1px solid ${OIRSE_THEME.border}; font-size: 1.8rem; cursor: pointer; color: ${OIRSE_THEME.textSecondary}; line-height: 1; padding: 0 8px; border-radius: 6px;`;
+    closeBtn.style.cssText = `background: ${OIRSE_THEME.bgSurface}; border: 1px solid ${OIRSE_THEME.border}; font-size: ${isMobile ? '1.4rem' : '1.8rem'}; cursor: pointer; color: ${OIRSE_THEME.textSecondary}; line-height: 1; padding: 0 8px; border-radius: 6px;`;
     closeBtn.onclick = () => modal.style.display = 'none';
     headerContainer.appendChild(title);
     headerContainer.appendChild(closeBtn);
@@ -2257,12 +2276,12 @@ async function showMethodologyResults(lineName) {
 
     // Tabs Nav
     const tabsContainer = document.createElement('div');
-    tabsContainer.style.cssText = `display: flex; flex-wrap: wrap; background: ${OIRSE_THEME.bgSurface}; border-bottom: 1px solid ${OIRSE_THEME.border}; padding: 0 20px;`;
+    tabsContainer.style.cssText = `display: flex; flex-wrap: wrap; background: ${OIRSE_THEME.bgSurface}; border-bottom: 1px solid ${OIRSE_THEME.border}; padding: 0 ${isMobile ? '8px' : '20px'}; gap: ${isMobile ? '0' : '0'};`;
     modal.appendChild(tabsContainer);
 
     // Content Area
     const contentContainer = document.createElement('div');
-    contentContainer.style.cssText = "padding: 20px;";
+    contentContainer.style.cssText = `padding: ${isMobile ? '12px 10px' : '20px'};`;
     contentContainer.innerHTML = `<div style="text-align: center; padding: 40px; color: ${OIRSE_THEME.textSecondary};">Cargando y procesando datos (S0 y S1)... <br> <span style="font-size: 2rem;">⏳</span></div>`;
     modal.appendChild(contentContainer);
 

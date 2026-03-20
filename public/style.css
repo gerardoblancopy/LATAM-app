@@ -302,33 +302,125 @@ body.has-compact-header #controls {
 }
 
 @media (max-width: 560px) {
+  #platform-header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .platform-title-kicker {
+    font-size: 0.52rem;
+    margin-bottom: 1px;
+  }
+
   .platform-title-main {
-    font-size: 0.98rem;
+    font-size: 0.88rem;
+  }
+
+  .platform-logos {
+    gap: 8px;
   }
 
   .platform-logos img {
-    height: 27px;
+    height: 22px;
   }
 
   #controls {
-    top: 150px;
-    left: 8px;
-    right: 8px;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
     max-width: none;
-    max-height: calc(100vh - 160px);
-  }
-
-  .leaflet-top.leaflet-left {
-    top: 156px;
-  }
-
-  body.has-compact-header .leaflet-top.leaflet-left {
-    top: 88px;
+    max-height: 55vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 14px 12px;
+    border-bottom: none;
   }
 
   body.has-compact-header #controls {
-    top: 92px;
-    max-height: calc(100vh - 102px);
+    top: auto;
+    bottom: 0;
+    max-height: 60vh;
+  }
+
+  .leaflet-top.leaflet-left {
+    top: 110px;
+  }
+
+  body.has-compact-header .leaflet-top.leaflet-left {
+    top: 56px;
+  }
+
+  /* Smaller form elements on mobile */
+  #run-model-btn {
+    padding: 9px 16px;
+    font-size: 13px;
+  }
+
+  #view-remuneration-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  #console-output {
+    max-height: 150px;
+    font-size: 10px;
+  }
+
+  .section-label {
+    font-size: 0.62rem;
+  }
+
+  select, input[type="text"], input[type="number"] {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+
+  /* Modal fullscreen on mobile */
+  .modal-content {
+    width: 94% !important;
+    max-width: none !important;
+    margin: 3% auto !important;
+    padding: 16px !important;
+  }
+
+  .modal-content h2 {
+    font-size: 0.95rem !important;
+  }
+
+  .form-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .form-group label {
+    margin-right: 0;
+    font-size: 12px;
+  }
+
+  .form-group select,
+  .form-group input[type="number"] {
+    width: 100%;
+  }
+}
+
+/* Drag handle for mobile bottom sheet */
+@media (max-width: 560px) {
+  #controls::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-light);
+    opacity: 0.6;
+  }
+
+  #controls {
+    padding-top: 20px;
   }
 }
 
